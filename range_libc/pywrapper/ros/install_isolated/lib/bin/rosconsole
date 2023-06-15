@@ -1,0 +1,3 @@
+#!/Users/anna/Documents/TUM/Thesis/ba-bio-inspired-navigation-main/venv/bin/python
+from rospy import rosconsole
+rosconsole.main()
