@@ -1,4 +1,4 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
 *    Title: "Scaling Local Control to Large Scale Topological Navigation"
 *    Author: "Xiangyun Meng, Nathan Ratliff, Yu Xiang and Dieter Fox"
@@ -6,7 +6,7 @@
 *    Availability: https://github.com/xymeng/rmp_nav
 *
 ***************************************************************************************
-'''
+"""
 import torch
 import numpy as np
 import tabulate
@@ -20,14 +20,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 import system.controller.reachability_estimator.networks as networks
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
-
-debug = True  # if True: print debug output
-
-
-def print_debug(*params):
-    """ output only when in debug mode """
-    if debug:
-        print(*params)
 
 
 def get_path():
@@ -46,11 +38,72 @@ def make_nets(specs, device):
     return ret
 
 
+def init_reachability_estimator(type='distance', **kwargs):
+    if type == 'distance':
+        return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
+    elif type == 'neural_network':
+        return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False), kwargs.get('weights_file', None))
+    elif type == 'simulation':
+        return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False), kwargs.get('env_model', None))
+    elif type == 'view_overlap':
+        return ViewOverlapReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
+    print("Reachability estimator type not defined: " + type)
+    return None
+
+
 class ReachabilityEstimator:
-    def __init__(self, weights_file=None, device='cpu', type="distance"):
-        """ Creates a reachability estimator that judges reachability 
+    def __init__(self, device='cpu', debug=False):
+        """ Creates a reachability estimator that judges reachability
             between two locations based on its type
+
+        arguments:
+        weights_file    -- neural network
+        device          -- device used for calculations (default cpu)
+        type            -- type of reachability estimation
+                        distance: returns distance between two coordinates
+                        neural_network: returns neural network prediction using images
+                        simulation: simulates navigation attempt and returns result
+                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        """
+        self.device = device
+        self.debug = debug
+
+    def print_debug(self, *params):
+        """ output only when in debug mode """
+        if self.debug:
+            print(*params)
+
+    def predict_reachability(self, start, goal):
+        pass
+
+    def reachable(self, reach, threshold):
+        """ Determine whether reachability value meets the threshold """
+        pass
+
+
+class DistanceReachabilityEstimator(ReachabilityEstimator):
+    def __init__(self, device='cpu', debug=False):
+        """ Creates a reachability estimator that judges reachability 
+            between two locations based on the distance
             
+        arguments:
+        device          -- device used for calculations (default cpu)
+        debug           -- is in debug mode
+        """
+        ReachabilityEstimator.__init__(self, device, debug)
+
+    def predict_reachability(self, start, goal):
+        """ Return distance between start and goal as an estimation of reachability"""
+        return np.linalg.norm(start.env_coordinates - goal.env_coordinates)
+
+    def reachable(self, reach, threshold):
+        return reach < threshold
+
+class NetworkReachabilityEstimator(ReachabilityEstimator):
+    def __init__(self, device='cpu', debug=False, weights_file=None):
+        """ Creates a reachability estimator that judges reachability
+            between two locations based on its type
+
         arguments:
         weights_file    -- neural network
         device          -- device used for calculations (default cpu)
@@ -61,120 +114,38 @@ class ReachabilityEstimator:
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
 
-        if type == "neural_network":
-            state_dict = torch.load(weights_file, map_location='cpu')
-            print_debug('loaded %s' % weights_file)
-            g = state_dict.get('global_args', {})
-            print_debug('global args:')
-            print_debug(tabulate.tabulate(g.items()))
+        ReachabilityEstimator.__init__(self, device, debug)
+        state_dict = torch.load(weights_file, map_location='cpu')
+        self.print_debug('loaded %s' % weights_file)
+        g = state_dict.get('global_args', {})
+        self.print_debug('global args:')
+        self.print_debug(tabulate.tabulate(g.items()))
 
-            model_spec = {
-                'img_encoder': {'class': 'ImagePairEncoderV2', 'net_kwargs': {'init_scale': 1.0}, 'opt': 'Adam',
-                                'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}},
-                'reachability_regressor': {'class': 'ReachabilityRegressor',
-                                           'net_kwargs': {'input_dim': 5120, 'init_scale': 1.0}, 'opt': 'Adam',
-                                           'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}},
-                "conv_encoder": {'class': 'ConvEncoder', 'net_kwargs': {'input_dim': 512, 'init_scale': 1.0},
-                                 'opt': 'Adam', 'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}}}
+        model_spec = {
+            'img_encoder': {'class': 'ImagePairEncoderV2', 'net_kwargs': {'init_scale': 1.0}, 'opt': 'Adam',
+                            'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}},
+            'reachability_regressor': {'class': 'ReachabilityRegressor',
+                                       'net_kwargs': {'input_dim': 5120, 'init_scale': 1.0}, 'opt': 'Adam',
+                                       'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}},
+            "conv_encoder": {'class': 'ConvEncoder', 'net_kwargs': {'input_dim': 512, 'init_scale': 1.0},
+                             'opt': 'Adam', 'opt_kwargs': {'lr': 0.0003, 'eps': 1e-05}}}
 
-            if isinstance(model_spec, dict):
-                nets = make_nets(model_spec, device)
-            else:
-                nets = make_nets(yaml.load(open(model_spec).read()), device)
+        if isinstance(model_spec, dict):
+            nets = make_nets(model_spec, device)
+        else:
+            nets = make_nets(yaml.load(open(model_spec).read()), device)
 
-            print_debug(nets)
+        self.print_debug(nets)
 
-            for name, net in nets.items():
-                net.load_state_dict(state_dict['nets'][name])
-                net.train(False)
-
-            self.device = device
-            self.g = g
-            self.nets = nets
-
-        self.type = type
-        self.env_model = None
+        for name, net in nets.items():
+            net.load_state_dict(state_dict['nets'][name])
+            net.train(False)
+        self.g = g
+        self.nets = nets
 
     def predict_reachability(self, start, goal):
         """ Return reachability estimate from start to goal using the re_type """
-        if self.type == "distance":
-            return self.predict_reachability_distance(start.env_coordinates, goal.env_coordinates)
-        elif self.type == "neural_network":
-            return self.predict_reachability_multiframe(start.observations[0], goal.observations)
-        elif self.type == "simulation":
-            if not self.env_model:
-                raise ValueError("missing env_model; needed for simulating reachability")
-            return self.predict_reachability_simulation(start, goal, self.env_model)
-        elif self.type == "view_overlap":
-            # TODO: untested and unfinished
-            self.env_model = "Savinov_val3"
-            return self.predict_reachability_view_overlap(start, goal, self.env_model)
-
-    def predict_reachability_distance(self, start_pos, goal_pos):
-        """ Return distance between start and goal as an estimation of reachability"""
-        return np.linalg.norm(start_pos - goal_pos)
-
-    def predict_reachability_simulation(self, start, goal, env_model):
-        """ Simulate movement between start and goal and return whether goal was reached """
-        dt = 1e-2
-
-        # initialize grid cell network and create target spiking
-        gc_network = setup_gc_network(dt)
-        gc_network.set_as_current_state(start.gc_connections)
-        target_spiking = goal.gc_connections
-        start_pos = start.env_coordinates
-        goal_pos = goal.env_coordinates
-
-        model = "combo"
-
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
-        env = PybulletEnvironment(False, dt, env_model, "analytical", start=list(start_pos))
-
-        over, _ = vector_navigation(env, list(goal_pos), gc_network, gc_spiking=target_spiking, model=model,
-                                    step_limit=750, plot_it=False)
-
-        if over == 1:
-            self.fov = 120 * np.pi / 180
-
-            map_layout = MapLayout(env_model)
-
-            overlap_ratios = map_layout.view_overlap(env.xy_coordinates[-1], env.orientation_angle[-1], self.fov,
-                                                     goal_pos, env.orientation_angle[-1], self.fov, mode='plane')
-
-            env.end_simulation()
-            if overlap_ratios[0] < 0.1 and overlap_ratios[1] < 0.1:
-                # Agent is close to the goal, but seperated by a wall.
-                return 0.0
-            elif np.linalg.norm(goal_pos - env.xy_coordinates[-1]) > 0.7:
-                # Agent actually didn't reach the goal and is too far away.
-                return 0.0
-            else:
-                # Agent did actually reach the goal
-                return 1.0
-        else:
-            env.end_simulation()
-            return 0.0
-
-    def predict_reachability_view_overlap(self, start, goal, env_model):
-        """ Reachability Score based on the view overlap of start and goal in the environment """
-        start_pos = start.env_coordinates
-        goal_pos = goal.env_coordinates
-
-        self.fov = 120 * np.pi / 180
-
-        map_layout = MapLayout(env_model)
-
-        heading1 = np.degrees(np.arctan2(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]))
-
-        overlap_ratios = map_layout.view_overlap(start_pos, heading1, self.fov,
-                                                 goal_pos, heading1, self.fov, mode='plane')
-
-        return (overlap_ratios[0] + overlap_ratios[1]) / 2
-
-    def predict_reachability_multiframe(self, ob, goal_seq):
-        """ Return the trained models estimation of reachability """
-        ret = self.predict_reachability_batch([ob], [goal_seq], batch_size=1)[0]
-        return ret
+        return self.predict_reachability_batch([start.observations[0]], [goal.observations], batch_size=1)[0]
 
     def predict_reachability_batch(self, obs, goals, batch_size=64):
         nets = self.nets
@@ -247,3 +218,110 @@ class ReachabilityEstimator:
                                   goals[n - n_remaining: n - n_remaining + batch_size]))
             n_remaining -= batch_size
         return torch.cat(results, dim=0).data.cpu().numpy()
+
+    def reachable(self, reach, threshold):
+        return reach > threshold
+
+
+class SimulationReachabilityEstimator(ReachabilityEstimator):
+    def __init__(self, device='cpu', debug=False, env_model=None):
+        """ Creates a reachability estimator that judges reachability
+            between two locations based on its type
+
+        arguments:
+        weights_file    -- neural network
+        device          -- device used for calculations (default cpu)
+        type            -- type of reachability estimation
+                        distance: returns distance between two coordinates
+                        neural_network: returns neural network prediction using images
+                        simulation: simulates navigation attempt and returns result
+                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        """
+        ReachabilityEstimator.__init__(self, device, debug)
+        self.env_model = env_model
+
+    def predict_reachability(self, start, goal):
+        """ Return reachability estimate from start to goal using the re_type """
+        if not self.env_model:
+            raise ValueError("missing env_model; needed for simulating reachability")
+        """ Simulate movement between start and goal and return whether goal was reached """
+        dt = 1e-2
+
+        # initialize grid cell network and create target spiking
+        gc_network = setup_gc_network(dt)
+        gc_network.set_as_current_state(start.gc_connections)
+        target_spiking = goal.gc_connections
+        start_pos = start.env_coordinates
+        goal_pos = goal.env_coordinates
+
+        model = "combo"
+
+        from system.controller.simulation.pybulletEnv import PybulletEnvironment
+        env = PybulletEnvironment(False, dt, self.env_model, "analytical", start=list(start_pos))
+
+        over, _ = vector_navigation(env, list(goal_pos), gc_network, gc_spiking=target_spiking, model=model,
+                                    step_limit=750, plot_it=False)
+
+        if over == 1:
+            self.fov = 120 * np.pi / 180
+
+            map_layout = MapLayout(self.env_model)
+
+            overlap_ratios = map_layout.view_overlap(env.xy_coordinates[-1], env.orientation_angle[-1], self.fov,
+                                                     goal_pos, env.orientation_angle[-1], self.fov, mode='plane')
+
+            env.end_simulation()
+            if overlap_ratios[0] < 0.1 and overlap_ratios[1] < 0.1:
+                # Agent is close to the goal, but seperated by a wall.
+                return 0.0
+            elif np.linalg.norm(goal_pos - env.xy_coordinates[-1]) > 0.7:
+                # Agent actually didn't reach the goal and is too far away.
+                return 0.0
+            else:
+                # Agent did actually reach the goal
+                return 1.0
+        else:
+            env.end_simulation()
+            return 0.0
+
+    def reachable(self, reach, threshold):
+        return reach >= threshold
+
+
+class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
+    def __init__(self, device='cpu', debug=False):
+        """ Creates a reachability estimator that judges reachability
+            between two locations based on its type
+
+        arguments:
+        weights_file    -- neural network
+        device          -- device used for calculations (default cpu)
+        type            -- type of reachability estimation
+                        distance: returns distance between two coordinates
+                        neural_network: returns neural network prediction using images
+                        simulation: simulates navigation attempt and returns result
+                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        """
+        ReachabilityEstimator.__init__(self, device, debug)
+
+    def predict_reachability(self, start, goal):
+        """ Reachability Score based on the view overlap of start and goal in the environment """
+        # TODO: untested and unfinished
+        self.env_model = "Savinov_val3"
+
+        start_pos = start.env_coordinates
+        goal_pos = goal.env_coordinates
+
+        self.fov = 120 * np.pi / 180
+
+        map_layout = MapLayout(self.env_model)
+
+        heading1 = np.degrees(np.arctan2(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]))
+
+        overlap_ratios = map_layout.view_overlap(start_pos, heading1, self.fov,
+                                                 goal_pos, heading1, self.fov, mode='plane')
+
+        return (overlap_ratios[0] + overlap_ratios[1]) / 2
+
+    def reachable(self, reach, threshold):
+        return reach > threshold

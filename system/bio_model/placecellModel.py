@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..",".."))
 
-from system.controller.reachability_estimator.reachabilityEstimation import ReachabilityEstimator
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
 def get_path_re():
     """ returns path to RE model folder """
@@ -112,13 +112,11 @@ class PlaceCellNetwork:
                     plus additional type "firing" that uses place cell spikings
         """
         self.re_type = re_type
-        filepath = None
-        if self.re_type == "neural_network":
-            filename = "trained_model_pair_conv.30"
-            filepath = os.path.join(get_path_re(),filename)
+        filename = "trained_model_pair_conv.30"
+        filepath = os.path.join(get_path_re(), filename)
         
         if not self.re_type == "firing":
-            self.reach_estimator = ReachabilityEstimator(filepath,type = re_type)
+            self.reach_estimator = init_reachability_estimator(re_type, weights_file=filepath)
         
         #thresholds for place cell creation
         if self.re_type == "distance":
