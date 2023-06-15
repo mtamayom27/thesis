@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from . import math_utils_cpp
+# from . import math_utils_cpp
 
 
 def depth_to_xy(depth, pos=None, heading=0.0, fov=np.pi * 2.0):
@@ -86,38 +86,39 @@ def compute_normals(points):
     :param points: a Nx2 array
     :return: Nx2 array of unit-length normals.
     """
-    # def rotate(v, a):
-    #     c, s = math.cos(a), math.sin(a)
-    #     x, y = v
-    #     x2 = c * x - s * y
-    #     y2 = s * x + c * y
-    #     return np.array([x2, y2], np.float32)
-    #
-    # normals = np.zeros((len(points), 2), np.float32)
-    #
-    # for i in range(len(points)):
-    #     p0 = points[i]
-    #     p1 = points[(i - 1) % len(points)]
-    #     p2 = points[(i + 1) % len(points)]
-    #
-    #     q1 = p1 - p0
-    #     q2 = p2 - p0
-    #
-    #     angle = vector_angle(q1, q2)
-    #
-    #     # Convert to clockwise angle
-    #     if angle < 0:
-    #         angle = -angle
-    #     else:
-    #         angle = np.pi * 2.0 - angle
-    #
-    #     n = rotate(q1 / np.linalg.norm(q1), -angle / 2)
-    #
-    #     normals[i] = n
-    # assert np.allclose(normals, normal2, 1e-3, 1e-3), np.sum(np.abs(normals - normal2))
+    def rotate(v, a):
+        c, s = math.cos(a), math.sin(a)
+        x, y = v
+        x2 = c * x - s * y
+        y2 = s * x + c * y
+        return np.array([x2, y2], np.float32)
+
+    normals = np.zeros((len(points), 2), np.float32)
+
+    for i in range(len(points)):
+        p0 = points[i]
+        p1 = points[(i - 1) % len(points)]
+        p2 = points[(i + 1) % len(points)]
+
+        q1 = p1 - p0
+        q2 = p2 - p0
+
+        angle = vector_angle(q1, q2)
+
+        # Convert to clockwise angle
+        if angle < 0:
+            angle = -angle
+        else:
+            angle = np.pi * 2.0 - angle
+
+        n = rotate(q1 / np.linalg.norm(q1), -angle / 2)
+
+        normals[i] = n
+    assert np.allclose(normals, normal2, 1e-3, 1e-3), np.sum(np.abs(normals - normal2))
 
     # Equivalent to above, but much faster.
-    normals = math_utils_cpp.compute_normals(points.astype(np.float32))
+    # TODO uncomment this once we get a correct library
+    # normals = math_utils_cpp.compute_normals(points.astype(np.float32))
     return normals
 
 

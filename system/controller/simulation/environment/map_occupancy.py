@@ -27,15 +27,17 @@ import cv2
 import math
 import numpy as np
 import time
-import range_libc
-
 import sys
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
-from system.controller.simulation.environment.map_occupancy_helpers.map_utils import a_star
+import range_libc
+
+
+from system.controller.simulation.environment.map_occupancy_helpers.map_utils import a_star, rasterize_line
 from system.controller.simulation.environment.map_occupancy_helpers.math_utils import depth_to_xy_plane, depth_to_xy, compute_normals
-import system.controller.simulation.environment.map_occupancy_helpers.map_utils_cpp as map_cpp
+# import system.controller.simulation.environment.map_occupancy_helpers.map_utils_cpp as map_cpp
 
 class Map(object):
     def __init__(self,
@@ -130,8 +132,7 @@ class Map(object):
         self.square_omap = np.zeros((max(h, w), max(h, w)), np.uint8)
         self.square_omap[:w, :h] = np.transpose(self.binary_occupancy, (1, 0))
         self.square_omap_copy = np.array(self.square_omap, copy=True)
-        
-        
+
         self.omap = range_libc.PyOMap(self.square_omap)
 
         self.range_scanner = range_libc.PyBresenhamsLine(self.omap, 1000)
@@ -323,19 +324,20 @@ class Map(object):
         xx2, yy2 = self.grid_coord(x2, y2, int(1.0 / self.resolution))
         dist_thres_grid = int(distance_thres / self.resolution)
 
-        return map_cpp.visible(self.map_dist_transform, xx1, yy1, xx2, yy2, dist_thres_grid)
+        # TODO uncomment when have dylib
+        # return map_cpp.visible(self.map_dist_transform, xx1, yy1, xx2, yy2, dist_thres_grid)
 
         # Equivalent to map_utils_cpp.visible(), but a lot slower.
-        #
-        # h, w = self.map_dist_transform.shape
-        # points = line_utils.rasterize_line(xx1, yy1, xx2, yy2)
-        # for x, y in points:
-        #     if 0 <= x < w and 0 <= y < h and self.map_dist_transform[y, x] > dist_thres_grid:
-        #         continue
-        #     else:
-        #         return False
-        #
-        # return True
+
+        h, w = self.map_dist_transform.shape
+        points = rasterize_line(xx1, yy1, xx2, yy2)
+        for x, y in points:
+            if 0 <= x < w and 0 <= y < h and self.map_dist_transform[y, x] > dist_thres_grid:
+                continue
+            else:
+                return False
+
+        return True
 
     def get_1d_depth(self, pos, n_depth_ray, heading=0.0, fov=np.pi * 2.0):
         '''
