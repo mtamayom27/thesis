@@ -217,7 +217,7 @@ class ReachabilityDataset(data.Dataset):
                 # a valid sample has been found.
                 if dst_idx - src_idx > timerange and x ** 2 + y ** 2 > distance ** 2:
                     #return path_length
-                    # TODO: initializing the map layout every time is inefficient
+                    # TODO Johanna: initializing the map layout every time is inefficient
                     layout = MapLayout(map_name)        
                     goal_pos = list(dst_pos)
                     src_pos = list(src_pos)
@@ -237,7 +237,7 @@ class ReachabilityDataset(data.Dataset):
                 break
 
             # select another idx if this one doesn't work
-            #TODO: Future Work: Sometimes the data generation gets livelocked. 
+            #TODO Johanna: Future Work: Sometimes the data generation gets livelocked.
             #                   This should fix it but could not be tested extensively.
             idx = (idx + self.rng.randint(1000)) % len(self)
         
@@ -285,7 +285,7 @@ class ReachabilityDataset(data.Dataset):
         return self._render_agent_view(map_name)
     
     def _jitter(self, sample, map):
-        #TODO: Future Work: implement jitter
+        #TODO Johanna: Future Work: implement jitter
         # No jitter needed for limited generating time.
         return sample
      
@@ -424,7 +424,7 @@ class ReachabilityDataset(data.Dataset):
             reached = 0.0
             
         if plotting: 
-            plotTrajectoryInEnvironment(env,string = title)
+            plotTrajectoryInEnvironment(env, title= title)
         
         final_coordinates = env.xy_coordinates[::self.frame_interval][-self.n_frame:] # taken in specified frame_interval
         final_orientations = env.orientation_angle[::self.frame_interval][-self.n_frame:]

@@ -5,11 +5,13 @@ import matplotlib as mpl
 from matplotlib import rc
 mpl.rcParams['animation.ffmpeg_path'] = "ffmpeg/ffmpeg"
 import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
 
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
+# TODO RESOLVE EVERYTHIN HERE WTF
 from plotting.helper import compute_theta, compute_axis_limits
 from plotting.plotHelper import *
 #from plotting.plotThesis import add_cognitive_map
@@ -90,7 +92,7 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.show()
     
     
-def plotTrajectoryInEnvironment(env,string="",xy_coordinates=None,env_model=None,cognitive_map=None,path=None):
+def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None):
 
     if not xy_coordinates:
         xy_coordinates = env.xy_coordinates
@@ -136,7 +138,7 @@ def plotTrajectoryInEnvironment(env,string="",xy_coordinates=None,env_model=None
 
         
     # add title
-    plt.title(string)
+    plt.title(title)
     plt.show()
 
 def plotStartGoalDataset(env_model, starts_goals):

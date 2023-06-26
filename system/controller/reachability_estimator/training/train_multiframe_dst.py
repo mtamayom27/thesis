@@ -73,7 +73,7 @@ def test_dst(dataset):
     from system.controller.reachability_estimator.reachabilityEstimation import NetworkReachabilityEstimator
     filename = "trained_model_pair_conv.30"
     filepath = os.path.join(os.path.join(os.path.dirname(__file__), "../data/models"), filename)
-    reach_estimator = NetworkReachabilityEstimator(filepath)
+    reach_estimator = NetworkReachabilityEstimator(weights_file=filepath)
 
     sampler = RandomSampler(dataset, True, len(dataset))
 

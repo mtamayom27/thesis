@@ -9,8 +9,8 @@ from cython.operator cimport dereference as deref
 USE_ROS_MAP = True
 if USE_ROS_MAP:
     import sys
-    sys.path.append('./ros/devel_isolated/nav_msgs/lib/python3.11/site-packages')
-    sys.path.append('./ros/devel_isolated/actionlib_msgs/lib/python3.11/site-packages')
+    sys.path.append('/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/range_libc/pywrapper/ros/devel_isolated/actionlib_msgs/lib/python3.11/site-packages/')
+    sys.path.append('/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/range_libc/pywrapper/ros/devel_isolated/nav_msgs/lib/python3.11/site-packages/')
     from nav_msgs.msg import OccupancyGrid
     import transforms3d
 # common_msgs/nav_msgs/CMakeFiles/nav_msgs_generate_messages_py: /Users/anna/Documents/TUM/Thesis/ba-bio-inspired-navigation-main/range_libc/pywrapper/ros/devel/lib/python3.11/site-packages/nav_msgs/msg/_OccupancyGrid.py

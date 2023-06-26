@@ -151,7 +151,7 @@ class GridCellModule:
 
 class GridCellNetwork:
     """GridCellNetwork holds all Grid Cell Modules"""
-    def __init__(self, n, M, dt, gmin, gmax=None, from_data=False, gc_name = "gc_model_6"):
+    def __init__(self, n, M, dt, gmin, gmax=None, from_data=False, gc_name="gc_model_6"):
 
         self.gc_modules = []  # array holding objects GridCellModule
         self.dt = dt

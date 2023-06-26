@@ -112,7 +112,7 @@ version_numbers (
 if (GFLAGS_SOVERSION)
   set (PACKAGE_SOVERSION "${GFLAGS_SOVERSION}")
 else ()
-  # TODO: Change default SOVERSION back to PACKAGE_VERSION_MAJOR with the
+  # TODO Johanna: Change default SOVERSION back to PACKAGE_VERSION_MAJOR with the
   #       next increase of major version number (i.e., 3.0.0 -> SOVERSION 3)
   #       The <major>.<minor> SOVERSION should be used for the 2.x releases
   #       versions only which temporarily broke the API by changing the default

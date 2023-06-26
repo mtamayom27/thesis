@@ -383,7 +383,7 @@ class PybulletEnvironment:
             gain = 0
 
         # For biologically inspired movement: only adjust course slightly
-        # TODO: Future Work: This restricts robot movement too severely
+        # TODO Johanna: Future Work: This restricts robot movement too severely
         max_speed = self.max_speed
         v_left = max_speed * (1 - diff_angle * 2) * gain
         v_right = max_speed * (1 + diff_angle * 2) * gain

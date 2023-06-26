@@ -178,7 +178,7 @@ class PlaceCellNetwork:
         firing_values = self.compute_firing_values(gc_modules)
 
         #reformat observation images 
-        # TODO: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
+        # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
         if len(obs)<10:
             obs += [obs[-1]] * (10 - len(obs))
         dst_imgs = []

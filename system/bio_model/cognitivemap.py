@@ -39,8 +39,74 @@ def print_debug(*params):
     if debug:
         print(*params)
 
+class CognitiveMapInterface:
+    def __init__(self, from_data=False, re_type="distance", env_model=None):
+        """ Cognitive map representation of the environment.
 
-class CognitiveMap:
+        arguments:
+        from_data   -- if True: load existing cognitive map (default False)
+        re_type     -- type of reachability estimator determining whether two nodes are connected
+                    see ReachabilityEstimator class for explanation of different types (default distance)
+        env_model   -- only needed when the reachability estimation is handled by simulation
+        """
+
+        weights_filename = "trained_model_pair_conv.30"
+        weights_filepath = os.path.join(get_path_re(), weights_filename)
+        self.reach_estimator = init_reachability_estimator(re_type, weights_file=weights_filepath, env_model=env_model,
+                                                           debug=debug)
+        self.node_network = nx.DiGraph()  # if reachability under threshold no edge
+        if from_data:
+            self.load_cognitive_map()
+
+    def track_movement(self, pc_firing, created_new_pc, pc):
+        pass
+
+    def find_path(self, start, goal):
+        """ Return path along nodes from start to goal"""
+        # TODO Johanna Future Work: Other path-finding options for weighted connections
+        g = self.node_network
+
+        try:
+            # return shortest path
+            path = nx.shortest_path(g, source=start, target=goal)
+        except nx.NetworkXNoPath:
+            print("no path")
+            return None
+
+        return path
+
+    def save_cognitive_map(self):
+        """ Store the current state of the node_network """
+
+        directory = os.path.join(get_path_top(), "data/cognitive_map")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
+
+    def load_cognitive_map(self):
+        """ Load existing cognitive map """
+        directory = os.path.join(get_path_top(), "data/cognitive_map")
+        if not os.path.exists(directory):
+            raise ValueError("cognitive map not found")
+
+        self.node_network = nx.read_gpickle(os.path.join(directory, "cognitive_map.gpickle"))
+
+    def draw_cognitive_map(self):
+        """ Plot the cognitive map """
+        import matplotlib.pyplot as plt
+        G = self.node_network
+        pos = nx.get_node_attributes(G, 'pos')
+
+        # Plots the nodes with index labels
+        nx.draw(G, pos, labels={i: str(list(G.nodes).index(i)) for i in list(G.nodes)})
+
+        # Plots the graph without labels
+        # nx.draw(G,pos,node_color='#0065BD',node_size = 50, edge_color = '#CCCCC6')
+        plt.show()
+
+
+class CognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", mode="exploration", connection=("all", "delayed"),
                  env_model=None):
         """ Cognitive map representation of the environment. 
@@ -54,16 +120,11 @@ class CognitiveMap:
         connection  -- (which nodes, when) Decides when the connection between which nodes is calculated.
                         all / radius: all possible connections are calculated 
                                     or just the connections between two nodes within each others radius are calculated
-                        delayed / instant: the connection calculation is dealyed until after the agent has explored the maze
+                        delayed / instant: the connection calculation is delayed until after the agent has explored the maze
                                         or every node is connected to other nodes as soon as it is created
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
-
-        filename = "trained_model_pair_conv.30"
-        filepath = os.path.join(get_path_re(), filename)
-
-        self.reach_estimator = init_reachability_estimator(re_type, weights_file=filepath, env_model=env_model)
-
+        CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
         # thresholds for different RE types
         if re_type == "distance":
             self.connection_threshold = 0.75
@@ -78,35 +139,16 @@ class CognitiveMap:
 
         self.connection = connection
 
-        self.node_network = nx.DiGraph()  # if reachability under threshold no edge
-
         self.prior_idx_pc_firing = None
         self.mode = mode
 
         self.radius = 5  # radius in which node connection is calculated
-
-        if from_data:
-            self.load_cognitive_map()
 
     def compute_reachability(self, reachability):
         """Determine most reachable place cell"""
         idx_pc_reachable = np.argmax(np.array(reachability))
         reach = np.max(reachability)
         return [reach, idx_pc_reachable]  # Return highest reachability and idx of pc
-
-    def find_path(self, start, goal):
-        """ Return path along nodes from start to goal"""
-        # Future Work: Other path-finding options for weighted connections
-        g = self.node_network
-
-        try:
-            # return shortest path
-            path = nx.shortest_path(g, source=start, target=goal)
-        except nx.NetworkXNoPath:
-            print("no path")
-            return None
-
-        return path
 
     def update_reachabilities(self):
         """ Update reachability between the nodes. """
@@ -163,8 +205,8 @@ class CognitiveMap:
             self._connect_single_node(p)
             print_debug("connecting finished")
 
-    def track_movement(self, pc_firing, created_new_pc, p):
-        """Keeps track of current place cell firing and creation of new place cells"""
+    def track_movement(self, pc_firing, created_new_pc, pc):
+        """Keeps track of curren/t place cell firing and creation of new place cells"""
 
         # get the currently active place cell
         idx_pc_active = np.argmax(pc_firing)
@@ -173,7 +215,7 @@ class CognitiveMap:
         # Check if we have entered a new place cell
         if created_new_pc:
             entered_different_pc = True
-            self.add_node_to_map(p)
+            self.add_node_to_map(pc)
 
         elif pc_active > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
             entered_different_pc = True
@@ -185,44 +227,18 @@ class CognitiveMap:
                 # If we have entered place cell p after being in place cell q during
                 # navigation, q is definitely reachable and the edge gets updated accordingly.
                 q = list(self.node_network.nodes)[self.prior_idx_pc_firing]
-                p = list(self.node_network.nodes)[idx_pc_active]
-                self.node_network.add_weighted_edges_from([(q, p, 1)])
+                pc = list(self.node_network.nodes)[idx_pc_active]
+                self.node_network.add_weighted_edges_from([(q, pc, 1)])
 
             self.prior_idx_pc_firing = idx_pc_active
 
     def save_cognitive_map(self):
-        """ Store the current state of the node_network """
-
+        CognitiveMapInterface.save_cognitive_map(self)
         directory = os.path.join(get_path_top(), "data/cognitive_map")
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-        nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
 
         if self.connection[1] == "delayed":
             self.update_reachabilities()
             nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
-
-    def load_cognitive_map(self):
-        """ Load existing cognitive map """
-        directory = os.path.join(get_path_top(), "data/cognitive_map")
-        if not os.path.exists(directory):
-            raise ValueError("cognitive map not found")
-
-        self.node_network = nx.read_gpickle(os.path.join(directory, "cognitive_map.gpickle"))
-
-    def draw_cognitive_map(self):
-        """ Plot the cognitive map """
-        import matplotlib.pyplot as plt
-        G = self.node_network
-        pos = nx.get_node_attributes(G, 'pos')
-
-        # Plots the nodes with index labels
-        nx.draw(G, pos, labels={i: str(list(G.nodes).index(i)) for i in list(G.nodes)})
-
-        # Plots the graph without labels
-        # nx.draw(G,pos,node_color='#0065BD',node_size = 50, edge_color = '#CCCCC6')
-        plt.show()
 
     def test_place_cell_network(self, env, gc_network, from_data=False):
         """ Test the drift error of place cells stored in the cognitive map """
@@ -302,18 +318,37 @@ class CognitiveMap:
 
         plt.show()
 
+    def postprocess(self):
+        pass
+
+
+class LifelongCognitiveMap(CognitiveMapInterface):
+    def __init__(self, from_data=False, re_type="distance", env_model=None):
+        CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
+
+        self.trajectory_nodes = []
+
+    def track_movement(self, pc_firing, created_new_pc, pc):
+        """Collects nodes"""
+
+        # Check if we have entered a new place cell
+        if created_new_pc:
+            self.trajectory_nodes.append(pc)
+
+    def postprocess(self):
+        ## TODO ADD ALGORITHM HERE
 
 if __name__ == "__main__":
     """ Load, draw and update the cognitive map """
 
     # Adjust what sort of RE you want to use for connecting nodes
-    connection_re_type = "view_overlap"  # "neural_network" #"simulation" #"view_overlap"
+    connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     connection = ("radius", "delayed")
     cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
 
     # Update and Save the cognitive map
-    # cm.update_reachabilities()
-    # cm.save_cognitive_map()
+    cm.update_reachabilities()
+    cm.save_cognitive_map()
 
     # Draw the cognitive map
     cm.draw_cognitive_map()

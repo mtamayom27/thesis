@@ -99,6 +99,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
     def reachable(self, reach, threshold):
         return reach < threshold
 
+
 class NetworkReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False, weights_file=None):
         """ Creates a reachability estimator that judges reachability
@@ -306,7 +307,7 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
     def predict_reachability(self, start, goal):
         """ Reachability Score based on the view overlap of start and goal in the environment """
-        # TODO: untested and unfinished
+        # TODO Johanna: untested and unfinished
         self.env_model = "Savinov_val3"
 
         start_pos = start.env_coordinates

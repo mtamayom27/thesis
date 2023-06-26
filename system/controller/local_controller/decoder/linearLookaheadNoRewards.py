@@ -36,7 +36,7 @@ def perform_look_ahead_2xnr(gc_network, env):
             s_vectors = gc_network.consolidate_gc_spiking(virtual=True)
 
             # computes projected pc firing
-            #TODO: this can be directly connected to the place cell network but we wanted to make the local controller independent
+            #TODO Johanna: this can be directly connected to the place cell network but we wanted to make the local controller independent
             #firing = pc_network.place_cells[goal_pc_idx].compute_firing_2x(s_vectors, axis)
             firing = compute_firing_2x(gc_network.target_spiking,s_vectors, axis)
 
@@ -83,7 +83,7 @@ def perform_look_ahead_2xnr(gc_network, env):
 
     return goal_vector
 
-#TODO: this can be directly connected to the place cell network but we wanted to make the local controller independent
+#TODO Johanna: this can be directly connected to the place cell network but we wanted to make the local controller independent
 def compute_firing_2x(gc_connections, s_vectors, axis, plot=False):
     """Computes firing projected on one axis, based on current grid cell spiking"""
     new_dim = int(np.sqrt(len(s_vectors[0])))  # n
