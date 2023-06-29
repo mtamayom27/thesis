@@ -14,12 +14,12 @@ import yaml
 
 import sys
 import os
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-
 import system.controller.reachability_estimator.networks as networks
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
+from system.bio_model.placecellModel import PlaceCell
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 
 def get_path():
@@ -42,9 +42,11 @@ def init_reachability_estimator(type='distance', **kwargs):
     if type == 'distance':
         return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
     elif type == 'neural_network':
-        return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False), kwargs.get('weights_file', None))
+        return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
+                                            kwargs.get('weights_file', None))
     elif type == 'simulation':
-        return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False), kwargs.get('env_model', None))
+        return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
+                                               kwargs.get('env_model', None))
     elif type == 'view_overlap':
         return ViewOverlapReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
     print("Reachability estimator type not defined: " + type)
@@ -52,7 +54,7 @@ def init_reachability_estimator(type='distance', **kwargs):
 
 
 class ReachabilityEstimator:
-    def __init__(self, device='cpu', debug=False):
+    def __init__(self, threshold_same, threshold_reachable, device='cpu', debug=False):
         """ Creates a reachability estimator that judges reachability
             between two locations based on its type
 
@@ -67,18 +69,28 @@ class ReachabilityEstimator:
         """
         self.device = device
         self.debug = debug
+        self.threshold_same = threshold_same
+        self.threshold_reachable = threshold_reachable
 
     def print_debug(self, *params):
         """ output only when in debug mode """
         if self.debug:
             print(*params)
 
-    def predict_reachability(self, start, goal):
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         pass
 
-    def reachable(self, reach, threshold):
+    def get_reachability(self, p, q) -> (bool, float):
         """ Determine whether reachability value meets the threshold """
-        pass
+        reachability_factor = self.predict_reachability(p, q)
+        return self.pass_threshold(reachability_factor, self.threshold_reachable), reachability_factor
+
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor < threshold
+
+    def is_same(self, p, q) -> bool:
+        """ Determine whether two nodes are close to each other sufficiently to consider them the same node """
+        return self.pass_threshold(self.predict_reachability(p, q), self.threshold_same)
 
 
 class DistanceReachabilityEstimator(ReachabilityEstimator):
@@ -90,14 +102,14 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
         device          -- device used for calculations (default cpu)
         debug           -- is in debug mode
         """
-        ReachabilityEstimator.__init__(self, device, debug)
+        ReachabilityEstimator.__init__(self, threshold_same=0.5, threshold_reachable=0.75, device=device, debug=debug)
 
-    def predict_reachability(self, start, goal):
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return distance between start and goal as an estimation of reachability"""
         return np.linalg.norm(start.env_coordinates - goal.env_coordinates)
 
-    def reachable(self, reach, threshold):
-        return reach < threshold
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor < threshold
 
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
@@ -114,8 +126,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
+        ReachabilityEstimator.__init__(self, threshold_same=0.6, threshold_reachable=0.5, device=device, debug=debug)
 
-        ReachabilityEstimator.__init__(self, device, debug)
         state_dict = torch.load(weights_file, map_location='cpu')
         self.print_debug('loaded %s' % weights_file)
         g = state_dict.get('global_args', {})
@@ -144,7 +156,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         self.g = g
         self.nets = nets
 
-    def predict_reachability(self, start, goal):
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return reachability estimate from start to goal using the re_type """
         return self.predict_reachability_batch([start.observations[0]], [goal.observations], batch_size=1)[0]
 
@@ -220,8 +232,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
             n_remaining -= batch_size
         return torch.cat(results, dim=0).data.cpu().numpy()
 
-    def reachable(self, reach, threshold):
-        return reach > threshold
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor > threshold
 
 
 class SimulationReachabilityEstimator(ReachabilityEstimator):
@@ -238,10 +250,10 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        ReachabilityEstimator.__init__(self, device, debug)
+        ReachabilityEstimator.__init__(self, threshold_same=1.0, threshold_reachable=1.0, device=device, debug=debug)
         self.env_model = env_model
 
-    def predict_reachability(self, start, goal):
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return reachability estimate from start to goal using the re_type """
         if not self.env_model:
             raise ValueError("missing env_model; needed for simulating reachability")
@@ -285,8 +297,8 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
             env.end_simulation()
             return 0.0
 
-    def reachable(self, reach, threshold):
-        return reach >= threshold
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor >= threshold
 
 
 class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
@@ -303,17 +315,15 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        ReachabilityEstimator.__init__(self, device, debug)
+        ReachabilityEstimator.__init__(self, threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
+        self.env_model = "Savinov_val3"
+        self.fov = 120 * np.pi / 180
 
-    def predict_reachability(self, start, goal):
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Reachability Score based on the view overlap of start and goal in the environment """
         # TODO Johanna: untested and unfinished
-        self.env_model = "Savinov_val3"
-
         start_pos = start.env_coordinates
         goal_pos = goal.env_coordinates
-
-        self.fov = 120 * np.pi / 180
 
         map_layout = MapLayout(self.env_model)
 
@@ -324,5 +334,5 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
         return (overlap_ratios[0] + overlap_ratios[1]) / 2
 
-    def reachable(self, reach, threshold):
-        return reach > threshold
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor > threshold

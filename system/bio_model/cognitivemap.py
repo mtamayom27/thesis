@@ -14,9 +14,11 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-
+from system.utils import shuffled
+from placecellModel import PlaceCell
 from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def get_path_re():
@@ -38,6 +40,7 @@ def print_debug(*params):
     """ output only when in debug mode """
     if debug:
         print(*params)
+
 
 class CognitiveMapInterface:
     def __init__(self, from_data=False, re_type="distance", env_model=None):
@@ -74,6 +77,19 @@ class CognitiveMapInterface:
             return None
 
         return path
+
+    def add_node_to_map(self, p: PlaceCell):
+        """ Add a new node to the cognitive map """
+        self.node_network.add_node(p, pos=tuple(p.env_coordinates))
+
+    def add_edge_to_map(self, p, q, w=1):
+        """ Add a new weighted edge to the cognitive map """
+        self.node_network.add_weighted_edges_from([(p, q, w)])
+
+    def add_bidirectional_edge_to_map(self, p, q, w=1):
+        """ Add 2 new weighted edges to the cognitive map """
+        self.node_network.add_weighted_edges_from([(p, q, w)])
+        self.node_network.add_weighted_edges_from([(q, p, w)])
 
     def save_cognitive_map(self):
         """ Store the current state of the node_network """
@@ -125,15 +141,6 @@ class CognitiveMap(CognitiveMapInterface):
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
         CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
-        # thresholds for different RE types
-        if re_type == "distance":
-            self.connection_threshold = 0.75
-        elif re_type == "neural_network":
-            self.connection_threshold = 0.5
-        elif re_type == "simulation":
-            self.connection_threshold = 1.0
-        if re_type == "view_overlap":
-            self.connection_threshold = 0.3
 
         self.active_threshold = 0.85
 
@@ -143,12 +150,6 @@ class CognitiveMap(CognitiveMapInterface):
         self.mode = mode
 
         self.radius = 5  # radius in which node connection is calculated
-
-    def compute_reachability(self, reachability):
-        """Determine most reachable place cell"""
-        idx_pc_reachable = np.argmax(np.array(reachability))
-        reach = np.max(reachability)
-        return [reach, idx_pc_reachable]  # Return highest reachability and idx of pc
 
     def update_reachabilities(self):
         """ Update reachability between the nodes. """
@@ -168,12 +169,11 @@ class CognitiveMap(CognitiveMapInterface):
                     # No connection above radius
                     continue
 
-                rp = self.reach_estimator.predict_reachability(p, q)  # reachability from p to q
-
-                if self.reach_estimator.reachable(rp, self.connection_threshold):
-                    self.node_network.add_weighted_edges_from([(p, q, rp)])
+                reachable, reachability_factor = self.reach_estimator.get_reachability(p, q)
+                if reachable:
+                    self.node_network.add_weighted_edges_from([(p, q, reachability_factor)])
                 else:
-                    self.node_network.remove_edges_from([(p, q, rp)])
+                    self.node_network.remove_edges_from([(p, q, reachability_factor)])
 
     def _connect_single_node(self, p):
         """ Calculate reachability of node p with other nodes """
@@ -186,18 +186,16 @@ class CognitiveMap(CognitiveMapInterface):
                 # No connection above radius
                 continue
 
-            rp = self.reach_estimator.predict_reachability(p, q)  # reachability from p to q
-            rq = self.reach_estimator.predict_reachability(q, p)  # reachability from q to p
+            reachable_pq, reachability_factor_pq = self.reach_estimator.get_reachability(p, q)
+            reachable_qp, reachability_factor_qp = self.reach_estimator.get_reachability(q, p)
 
-            if self.reach_estimator.reachable(rp, self.connection_threshold):
-                self.node_network.add_weighted_edges_from([(p, q, rp)])
-            if self.reach_estimator.reachable(rq, self.connection_threshold):
-                self.node_network.add_weighted_edges_from([(q, p, rq)])
+            if reachable_pq:
+                self.node_network.add_weighted_edges_from([(p, q, reachability_factor_pq)])
+            if reachable_qp:
+                self.node_network.add_weighted_edges_from([(q, p, reachability_factor_qp)])
 
-    def add_node_to_map(self, p):
-        """ Add a new node to the cognitive map """
-        # add into digraph
-        self.node_network.add_node(p, pos=tuple(p.env_coordinates))
+    def add_node_to_map(self, p: PlaceCell):
+        CognitiveMapInterface.add_node_to_map(self, p)
 
         if self.connection[1] == "instant":
             # Connect the new node to all other nodes in the graph
@@ -205,7 +203,7 @@ class CognitiveMap(CognitiveMapInterface):
             self._connect_single_node(p)
             print_debug("connecting finished")
 
-    def track_movement(self, pc_firing, created_new_pc, pc):
+    def track_movement(self, pc_firing, created_new_pc, pc: PlaceCell):
         """Keeps track of curren/t place cell firing and creation of new place cells"""
 
         # get the currently active place cell
@@ -319,24 +317,56 @@ class CognitiveMap(CognitiveMapInterface):
         plt.show()
 
     def postprocess(self):
-        pass
+        self.update_reachabilities()
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", env_model=None):
         CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
 
-        self.trajectory_nodes = []
+        self.trajectory_nodes: [PlaceCell] = []
 
-    def track_movement(self, pc_firing, created_new_pc, pc):
+    def track_movement(self, pc_firing, created_new_pc, pc: PlaceCell):
         """Collects nodes"""
 
         # Check if we have entered a new place cell
         if created_new_pc:
             self.trajectory_nodes.append(pc)
 
+    def is_connectable(self, p, q):
+        """Check if two waypoints p and q are connectable."""
+        return self.reach_estimator.get_reachability(p, q)[0]
+
+    def is_mergeable(self, p):
+        """Check if the waypoint p is mergeable with the existing graph V."""
+        for q in self.node_network.nodes:
+            if self.reach_estimator.is_same(p, q):
+                return True
+        return False
+
+    def construct_graph(self):
+        # TODO: more clever node choosing here
+        self.add_node_to_map(self.trajectory_nodes[0])  # Initialize graph with the first element from trajectories
+
+        updated = True
+        self.trajectory_nodes = self.trajectory_nodes[1:]  # Remove the first element from trajectories
+        while updated:
+            updated = False
+            for candidate in shuffled(self.trajectory_nodes):
+                if self.is_mergeable(candidate):
+                    self.trajectory_nodes.remove(candidate)
+                else:
+                    for existing_node in self.node_network.nodes:
+                        if self.is_connectable(candidate, existing_node):
+                            if candidate not in self.node_network.nodes:
+                                self.add_node_to_map(candidate)
+                                self.trajectory_nodes.remove(candidate)
+                            # TODO: add weights later if needed
+                            self.add_bidirectional_edge_to_map(candidate, existing_node)
+                            updated = True
+
     def postprocess(self):
-        ## TODO ADD ALGORITHM HERE
+        self.construct_graph()
 
 if __name__ == "__main__":
     """ Load, draw and update the cognitive map """
@@ -347,7 +377,7 @@ if __name__ == "__main__":
     cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
 
     # Update and Save the cognitive map
-    cm.update_reachabilities()
+    cm.postprocess()
     cm.save_cognitive_map()
 
     # Draw the cognitive map
@@ -357,7 +387,7 @@ if __name__ == "__main__":
     if testing:
         """ test the place cell drift of the cognitive map """
         from system.controller.simulation.pybulletEnv import PybulletEnvironment
-        from system.bio_model.placecellModel import PlaceCellNetwork
+        from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
         from system.controller.local_controller.local_navigation import setup_gc_network
 
         pc_network = PlaceCellNetwork(from_data=True)

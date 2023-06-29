@@ -102,7 +102,7 @@ def compute_weights(s_vectors):
 
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
-    def __init__(self, from_data=False, re_type = "distance",):
+    def __init__(self, from_data=False, re_type="distance",):
         """ Place Cell Network  of the environment. 
         
         arguments:
@@ -153,7 +153,7 @@ class PlaceCellNetwork:
         pc = PlaceCell(weights,obs,coordinates)
         self.place_cells.append(pc)
         
-    def in_range(self,reach):
+    def in_range(self, reach):
         """ Determine whether one value meets the threshold """
         if self.re_type == "distance":
             r = np.min(reach)
@@ -170,9 +170,8 @@ class PlaceCellNetwork:
         elif self.re_type == "view_overlap":
             r = np.max(reach)
             return r > self.creation_threshold
-    
 
-    def track_movement(self, gc_modules, reward_first_found,obs,coordinates,maze = None):
+    def track_movement(self, gc_modules, reward_first_found, obs, coordinates, maze = None):
         """Keeps track of current grid cell firing"""
         
         firing_values = self.compute_firing_values(gc_modules)
@@ -184,18 +183,18 @@ class PlaceCellNetwork:
         dst_imgs = []
         dat = obs
         for dt in dat:
-            img = np.transpose(dt[2],(2,0,1))
+            img = np.transpose(dt[2], (2, 0, 1))
             img = img[:3]
             dst_imgs.append(img)
 
         if self.re_type == "firing":
             firing = firing_values
         else:
-            firing = self.compute_reachability_values(coordinates,dst_imgs)
+            firing = self.compute_reachability_values(coordinates, dst_imgs)
 
         created_new_pc = False
         if len(firing_values) == 0 or not self.in_range(firing):
-            self.create_new_pc(gc_modules,dst_imgs,coordinates)
+            self.create_new_pc(gc_modules, dst_imgs, coordinates)
             firing_values.append(1)
             created_new_pc = True
 
@@ -221,7 +220,7 @@ class PlaceCellNetwork:
             firing_values.append(firing)
         return firing_values
     
-    def compute_reachability_values(self, coordinates,observations):
+    def compute_reachability_values(self, coordinates, observations):
         """ Compute reachability values from all cells to current state, breaks when reachable """
         firing_values = []
         goal = types.SimpleNamespace()
