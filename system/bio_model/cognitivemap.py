@@ -14,7 +14,7 @@ import numpy as np
 import sys
 import os
 
-from system.utils import shuffled
+from system.utils import shuffled, sample_normal
 from placecellModel import PlaceCell
 from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
@@ -82,14 +82,14 @@ class CognitiveMapInterface:
         """ Add a new node to the cognitive map """
         self.node_network.add_node(p, pos=tuple(p.env_coordinates))
 
-    def add_edge_to_map(self, p, q, w=1):
+    def add_edge_to_map(self, p, q, w=1, **kwargs):
         """ Add a new weighted edge to the cognitive map """
-        self.node_network.add_weighted_edges_from([(p, q, w)])
+        self.node_network.add_edge(p, q, weight=w, **kwargs)
 
-    def add_bidirectional_edge_to_map(self, p, q, w=1):
+    def add_bidirectional_edge_to_map(self, p, q, w=1, **kwargs):
         """ Add 2 new weighted edges to the cognitive map """
-        self.node_network.add_weighted_edges_from([(p, q, w)])
-        self.node_network.add_weighted_edges_from([(q, p, w)])
+        self.node_network.add_edge(p, q, weight=w, **kwargs)
+        self.node_network.add_edge(q, p, weight=w, **kwargs)
 
     def save_cognitive_map(self):
         """ Store the current state of the node_network """
@@ -140,7 +140,7 @@ class CognitiveMap(CognitiveMapInterface):
                                         or every node is connected to other nodes as soon as it is created
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
-        CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
+        super().__init__(from_data, re_type, env_model)
 
         self.active_threshold = 0.85
 
@@ -195,7 +195,7 @@ class CognitiveMap(CognitiveMapInterface):
                 self.node_network.add_weighted_edges_from([(q, p, reachability_factor_qp)])
 
     def add_node_to_map(self, p: PlaceCell):
-        CognitiveMapInterface.add_node_to_map(self, p)
+        super().add_node_to_map(p)
 
         if self.connection[1] == "instant":
             # Connect the new node to all other nodes in the graph
@@ -322,9 +322,13 @@ class CognitiveMap(CognitiveMapInterface):
 
 class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", env_model=None):
-        CognitiveMapInterface.__init__(self, from_data, re_type, env_model)
-
+        super().__init__(from_data, re_type, env_model)
         self.trajectory_nodes: [PlaceCell] = []
+        self.sigma = 0.015
+        self.sigma_squared = self.sigma ** 2
+        self.threshold_edge_removal = 0.5
+        self.p_s_given_r = 0.55
+        self.p_s_given_not_r = 0.15
 
     def track_movement(self, pc_firing, created_new_pc, pc: PlaceCell):
         """Collects nodes"""
@@ -333,23 +337,19 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         if created_new_pc:
             self.trajectory_nodes.append(pc)
 
-    def is_connectable(self, p, q):
+    def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
         """Check if two waypoints p and q are connectable."""
-        return self.reach_estimator.get_reachability(p, q)[0]
+        return self.reach_estimator.get_reachability(p, q)
 
-    def is_mergeable(self, p):
-        """Check if the waypoint p is mergeable with the existing graph V."""
-        for q in self.node_network.nodes:
-            if self.reach_estimator.is_same(p, q):
-                return True
-        return False
+    def is_mergeable(self, p: PlaceCell) -> bool:
+        """Check if the waypoint p is mergeable with the existing graph"""
+        return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
     def construct_graph(self):
         # TODO: more clever node choosing here
-        self.add_node_to_map(self.trajectory_nodes[0])  # Initialize graph with the first element from trajectories
+        self.add_node_to_map(self.trajectory_nodes.pop(0))  # Initialize graph with the first element from trajectories
 
         updated = True
-        self.trajectory_nodes = self.trajectory_nodes[1:]  # Remove the first element from trajectories
         while updated:
             updated = False
             for candidate in shuffled(self.trajectory_nodes):
@@ -357,16 +357,47 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                     self.trajectory_nodes.remove(candidate)
                 else:
                     for existing_node in self.node_network.nodes:
-                        if self.is_connectable(candidate, existing_node):
+                        connectable, weight = self.is_connectable(candidate, existing_node)
+                        if connectable:
                             if candidate not in self.node_network.nodes:
                                 self.add_node_to_map(candidate)
                                 self.trajectory_nodes.remove(candidate)
-                            # TODO: add weights later if needed
-                            self.add_bidirectional_edge_to_map(candidate, existing_node)
+                            # TODO: in paper here relative form transformation
+                            self.add_bidirectional_edge_to_map(candidate, existing_node,
+                                                               sample_normal(weight, self.sigma),
+                                                               connectivity_probability=1.0, mu=weight,
+                                                               sigma=self.sigma)
                             updated = True
 
     def postprocess(self):
         self.construct_graph()
+
+    def update_edge(self, node_p, node_q, observation_q, observation_p):
+        success = self.reach_estimator.get_reachability(observation_q, node_q)[0]
+        edge = self.node_network[node_p][node_q]
+
+        # Update connectivity
+        p_s_r = self.p_s_given_r
+        t = p_s_r * edge['connectivity_probability']
+        p_r_s = t / (t + self.p_s_given_not_r * (1 - edge['connectivity_probability']))
+
+        if not success and p_r_s < self.threshold_edge_removal:
+            # Prune the edge when p(r_ij^{t+1}|s) < Rp
+            self.node_network.remove_edge(node_p, node_q)
+            self.node_network.remove_edge(node_q, node_p)
+        else:
+            edge['connectivity_probability'] = p_r_s
+
+        # Update distance weight
+        if success:
+            weight = self.reach_estimator.get_reachability(observation_p, node_q)[1]
+            sigma_ij_t_squared = edge['sigma'] ** 2
+            mu_ij_t = edge['mu']
+            edge['mu'] = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
+            edge['sigma'] = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
+            edge['weight'] = sample_normal(edge['mu'], edge['sigma'])
+
+
 
 if __name__ == "__main__":
     """ Load, draw and update the cognitive map """

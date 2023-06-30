@@ -102,7 +102,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
         device          -- device used for calculations (default cpu)
         debug           -- is in debug mode
         """
-        ReachabilityEstimator.__init__(self, threshold_same=0.5, threshold_reachable=0.75, device=device, debug=debug)
+        super().__init__(threshold_same=0.5, threshold_reachable=0.75, device=device, debug=debug)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return distance between start and goal as an estimation of reachability"""
@@ -126,7 +126,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        ReachabilityEstimator.__init__(self, threshold_same=0.6, threshold_reachable=0.5, device=device, debug=debug)
+        super().__init__(threshold_same=0.6, threshold_reachable=0.5, device=device, debug=debug)
 
         state_dict = torch.load(weights_file, map_location='cpu')
         self.print_debug('loaded %s' % weights_file)
@@ -250,7 +250,7 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        ReachabilityEstimator.__init__(self, threshold_same=1.0, threshold_reachable=1.0, device=device, debug=debug)
+        super().__init__(threshold_same=1.0, threshold_reachable=1.0, device=device, debug=debug)
         self.env_model = env_model
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
@@ -315,7 +315,7 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        ReachabilityEstimator.__init__(self, threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
+        super().__init__(threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
         self.env_model = "Savinov_val3"
         self.fov = 120 * np.pi / 180
 
