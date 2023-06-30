@@ -395,7 +395,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             mu_ij_t = edge['mu']
             edge['mu'] = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
             edge['sigma'] = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
-            edge['weight'] = sample_normal(edge['mu'], edge['sigma'])
+            edge['weight'] = sample_normal(edge['mu'], edge['sigma'])  # weight ~ N(mu, sigma^2)
 
 
 
