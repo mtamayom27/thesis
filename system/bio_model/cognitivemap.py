@@ -376,17 +376,23 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         success = self.reach_estimator.get_reachability(observation_q, node_q)[0]
         edge = self.node_network[node_p][node_q]
 
-        # Update connectivity
-        p_s_r = self.p_s_given_r
-        t = p_s_r * edge['connectivity_probability']
-        p_r_s = t / (t + self.p_s_given_not_r * (1 - edge['connectivity_probability']))
+        def conditional_probability(s=True, r=True):
+            if s:
+                if r:
+                    return self.p_s_given_r
+                return self.p_s_given_not_r
+            if r:
+                return 1 - self.p_s_given_r
+            return 1 - self.p_s_given_not_r
 
-        if not success and p_r_s < self.threshold_edge_removal:
+        # Update connectivity
+        t = conditional_probability(success, True) * edge['connectivity_probability']
+        edge['connectivity_probability'] = t / (t + conditional_probability(success, False) * (1 - edge['connectivity_probability']))
+
+        if not success and edge['connectivity_probability'] < self.threshold_edge_removal:
             # Prune the edge when p(r_ij^{t+1}|s) < Rp
             self.node_network.remove_edge(node_p, node_q)
             self.node_network.remove_edge(node_q, node_p)
-        else:
-            edge['connectivity_probability'] = p_r_s
 
         # Update distance weight
         if success:
@@ -396,7 +402,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             edge['mu'] = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
             edge['sigma'] = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
             edge['weight'] = sample_normal(edge['mu'], edge['sigma'])  # weight ~ N(mu, sigma^2)
-
 
 
 if __name__ == "__main__":
