@@ -102,7 +102,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
         device          -- device used for calculations (default cpu)
         debug           -- is in debug mode
         """
-        super().__init__(threshold_same=0.5, threshold_reachable=0.75, device=device, debug=debug)
+        super().__init__(threshold_same=0.25, threshold_reachable=0.75, device=device, debug=debug)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return distance between start and goal as an estimation of reachability"""

@@ -15,21 +15,22 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..",".."))
 
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
 def get_path_re():
     """ returns path to RE model folder """
     dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
     return dirname
 
+
 def get_path_top():
     """ returns path to topological data folder """
     dirname = os.path.join(os.path.dirname(__file__))
     return dirname
 
+
 class PlaceCell:
     """Class to keep track of an individual Place Cell"""
-    def __init__(self, gc_connections,observations,coordinates):
+    def __init__(self, gc_connections, observations, coordinates):
         self.gc_connections = gc_connections  # Connection matrix to grid cells of all modules; has form (n^2 x M)
         self.env_coordinates = coordinates  # Save x and y coordinate at moment of creation
 
@@ -111,6 +112,8 @@ class PlaceCellNetwork:
                     see ReachabilityEstimator class for explanation of different types (default distance)
                     plus additional type "firing" that uses place cell spikings
         """
+        from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+
         self.re_type = re_type
         filename = "trained_model_pair_conv.30"
         filepath = os.path.join(get_path_re(), filename)
@@ -134,14 +137,14 @@ class PlaceCellNetwork:
 
         if from_data:
             # Load place cells if wanted
-            directory = directory = os.path.join(get_path_top(),"data/pc_model")
+            directory = os.path.join(get_path_top(), "data/pc_model")
 
-            gc_connections = np.load(directory+"/gc_connections.npy")
-            env_coordinates = np.load(directory+"/env_coordinates.npy")
-            observations = np.load(directory+"/observations.npy",allow_pickle=True)
+            gc_connections = np.load(directory + "/gc_connections.npy")
+            env_coordinates = np.load(directory + "/env_coordinates.npy")
+            observations = np.load(directory + "/observations.npy", allow_pickle=True)
 
             for idx, gc_connection in enumerate(gc_connections):
-                pc = PlaceCell(gc_connection,observations[idx],env_coordinates[idx])
+                pc = PlaceCell(gc_connection, observations[idx], env_coordinates[idx])
                 self.place_cells.append(pc)
 
     def create_new_pc(self, gc_modules,obs,coordinates):
@@ -150,7 +153,7 @@ class PlaceCellNetwork:
         for m, gc in enumerate(gc_modules):
             s_vectors[m] = gc.s
         weights = compute_weights(s_vectors)
-        pc = PlaceCell(weights,obs,coordinates)
+        pc = PlaceCell(weights, obs, coordinates)
         self.place_cells.append(pc)
         
     def in_range(self, reach):

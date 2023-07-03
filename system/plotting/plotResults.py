@@ -3,6 +3,7 @@ import matplotlib.colors as mcolors
 import matplotlib.animation as animation
 import matplotlib as mpl
 from matplotlib import rc
+
 mpl.rcParams['animation.ffmpeg_path'] = "ffmpeg/ffmpeg"
 import networkx as nx
 import numpy as np
@@ -10,19 +11,21 @@ import matplotlib.pyplot as plt
 
 import sys
 import os
+
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 # TODO RESOLVE EVERYTHIN HERE WTF
 from plotting.helper import compute_theta, compute_axis_limits
 from plotting.plotHelper import *
-#from plotting.plotThesis import add_cognitive_map
+
+# from plotting.plotThesis import add_cognitive_map
 
 
-colors = [(1,0,0,c) for c in np.linspace(0,1,100)]
+colors = [(1, 0, 0, c) for c in np.linspace(0, 1, 100)]
 cmapred = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
-colors = [(0,0,1,c) for c in np.linspace(0,1,100)]
+colors = [(0, 0, 1, c) for c in np.linspace(0, 1, 100)]
 cmapblue = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
-csfont = {'fontname':'Comic Sans MS'}
-hfont = {'fontname':'Avenir'}
+csfont = {'fontname': 'Comic Sans MS'}
+hfont = {'fontname': 'Avenir'}
 
 cmap = plt.cm.get_cmap("tab20")  # define the colormap
 # extract all colors from the .jet map
@@ -34,34 +37,34 @@ cmap20 = mcolors.LinearSegmentedColormap.from_list(
     'Custom cmap', cmaplist, cmap.N)
 
 TUM_colors = {
-                'TUMBlue': '#0065BD',
-                'TUMSecondaryBlue': '#005293',
-                'TUMSecondaryBlue2': '#003359',
-                'TUMBlack': '#000000',
-                'TUMWhite': '#FFFFFF',
-                'TUMDarkGray': '#333333',
-                'TUMGray': '#808080',
-                'TUMLightGray': '#CCCCC6',
-                'TUMAccentGray': '#DAD7CB',
-                'TUMAccentOrange': '#E37222',
-                'TUMAccentGreen': '#A2AD00',
-                'TUMAccentLightBlue': '#98C6EA',
-                'TUMAccentBlue': '#64A0C8'
+    'TUMBlue': '#0065BD',
+    'TUMSecondaryBlue': '#005293',
+    'TUMSecondaryBlue2': '#003359',
+    'TUMBlack': '#000000',
+    'TUMWhite': '#FFFFFF',
+    'TUMDarkGray': '#333333',
+    'TUMGray': '#808080',
+    'TUMLightGray': '#CCCCC6',
+    'TUMAccentGray': '#DAD7CB',
+    'TUMAccentOrange': '#E37222',
+    'TUMAccentGreen': '#A2AD00',
+    'TUMAccentLightBlue': '#98C6EA',
+    'TUMAccentBlue': '#64A0C8'
 }
 
 cmap_binary = mcolors.ListedColormap([TUM_colors['TUMWhite'], TUM_colors['TUMGray']])
 
 N = 256
 vals = np.ones((N, 4))
-vals[:, 0] = np.linspace(256/256, 0/256, N)
-vals[:, 1] = np.linspace(256/256, 101/256, N)
-vals[:, 2] = np.linspace(256/256, 189/256, N)
+vals[:, 0] = np.linspace(256 / 256, 0 / 256, N)
+vals[:, 1] = np.linspace(256 / 256, 101 / 256, N)
+vals[:, 2] = np.linspace(256 / 256, 189 / 256, N)
 tum_blue_map = mcolors.ListedColormap(vals)
 
 vals2 = np.ones((N, 4))
-vals2[:, 0] = np.linspace(256/256, 128/256, N)
-vals2[:, 1] = np.linspace(256/256, 128/256, N)
-vals2[:, 2] = np.linspace(256/256, 128/256, N)
+vals2[:, 0] = np.linspace(256 / 256, 128 / 256, N)
+vals2[:, 1] = np.linspace(256 / 256, 128 / 256, N)
+vals2[:, 2] = np.linspace(256 / 256, 128 / 256, N)
 tum_grey_map = mcolors.ListedColormap(vals2)
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -74,7 +77,7 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.scatter(x, y, s=0.2)
 
     nr_labels = 10
-    step_label = int(len(xy_coordinates)/nr_labels)
+    step_label = int(len(xy_coordinates) / nr_labels)
     for i in range(len(x)):
         if i % step_label == 0:
             xi = x[i]
@@ -90,74 +93,71 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.axis('equal')
     plt.legend(['Trajectory'])
     plt.show()
-    
-    
-def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None):
 
+
+def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None):
     if not xy_coordinates:
         xy_coordinates = env.xy_coordinates
-  
+
     if env_model:
-        #get the dimensions without having to adjust them here
+        # get the dimensions without having to adjust them here
         from system.controller.simulation.pybulletEnv import PybulletEnvironment
-        env = PybulletEnvironment(False,1e-2,env_model,mode = "analytical")
+        env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
 
     fig, ax = plt.subplots()
-    add_environment(ax,env)
+    add_environment(ax, env)
 
-
-    #plot goal vector
+    # plot goal vector
     if env:
         X = np.array((env.xy_coordinates[-1][0]))
-        Y= np.array((env.xy_coordinates[-1][1]))
+        Y = np.array((env.xy_coordinates[-1][1]))
         U = np.array((env.goal_vector[0]))
         V = np.array((env.goal_vector[1]))
 
-        q = ax.quiver(X, Y, U, V,units='xy' ,scale=1,color=TUM_colors["TUMAccentGreen"])
+        q = ax.quiver(X, Y, U, V, units='xy', scale=1, color=TUM_colors["TUMAccentGreen"])
 
     if cognitive_map:
-        add_environment(ax,env)
+        add_environment(ax, env)
         G = cognitive_map.node_network
-        pos=nx.get_node_attributes(G,'pos')
-        #nx.draw(G,pos,node_color='#0065BD',node_size=10)
-        nx.draw_networkx_nodes(G,pos,node_color='#0065BD80',node_size=600)
-        #nx.draw_networkx_edges(G,pos,edge_color='#CCCCC6')
+        pos = nx.get_node_attributes(G, 'pos')
+        # nx.draw(G,pos,node_color='#0065BD',node_size=10)
+        nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=600)
+        # nx.draw_networkx_edges(G,pos,edge_color='#CCCCC6')
 
         if path:
-            #draw_path
-            path_edges = list(zip(path,path[1:]))
-            nx.draw_networkx_nodes(G,pos,nodelist=path,node_color='#E37222',node_size=600)
+            # draw_path
+            path_edges = list(zip(path, path[1:]))
+            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E37222', node_size=600)
             G = G.to_undirected()
-            nx.draw_networkx_edges(G,pos,edgelist=path_edges,edge_color='#E37222',width=3)
+            nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E37222', width=3)
 
     x, y = zip(*xy_coordinates)
     ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10)
 
     add_robot(ax, env)
-    if env.goal_pos: add_goal(ax,env)
+    if env.goal_pos: add_goal(ax, env)
 
-        
     # add title
     plt.title(title)
     plt.show()
 
+
 def plotStartGoalDataset(env_model, starts_goals):
-    #get the dimensions without having to adjust them here
+    # get the dimensions without having to adjust them here
     from system.controller.simulation.pybulletEnv import PybulletEnvironment
-    env = PybulletEnvironment(False,1e-2,env_model,mode = "analytical")
+    env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
 
     fig, ax = plt.subplots()
-    add_environment(ax,env)
+    add_environment(ax, env)
     for e in starts_goals:
-        start,goal = e
+        start, goal = e
         circle = plt.Circle((start[0], start[1]), 0.2, color=TUM_colors['TUMAccentBlue'], alpha=1)
         ax.add_artist(circle)
         circle = plt.Circle((goal[0], goal[1]), 0.2, color=TUM_colors['TUMAccentOrange'], alpha=1)
         ax.add_artist(circle)
     plt.show()
     env.end_simulation()
-        
-    
+
 
 def plotSpeeds(xy_speed):
     plt.figure()
@@ -165,8 +165,8 @@ def plotSpeeds(xy_speed):
     # plt.legend(['x-speed', 'y-speed'])
     plt.show()
 
-def plotGridCellSheet(gc_modules):
 
+def plotGridCellSheet(gc_modules):
     fig = plt.figure()
 
     for i in range(len(gc_modules)):
@@ -175,6 +175,7 @@ def plotGridCellSheet(gc_modules):
         fig.add_subplot(1, len(gc_modules), i + 1)
         plt.imshow(s, origin="lower")
     plt.show()
+
 
 def plotMotorOutputNeuron(mo_network):
     fig = plt.figure(figsize=(8, 8))
@@ -191,6 +192,7 @@ def plotMotorOutputNeuron(mo_network):
         bar.set_alpha(0.5)
 
     plt.show()
+
 
 def convertInVector(p_array, n_theta, n_xy, n):
     V = []
@@ -210,14 +212,13 @@ def convertInVector(p_array, n_theta, n_xy, n):
                     length = 1
                 else:
                     length = 0
-                vec = [length*np.cos(theta), length*np.sin(theta)]
+                vec = [length * np.cos(theta), length * np.sin(theta)]
                 V.append(vec)
                 nr = nr + 1
     return [V, [origin_x, origin_y]]
 
 
 def plotPhaseOffsetDetector(gc_modules, p_array_modules, n_theta, n_xy):
-
     fig = plt.figure()
 
     for m, gc in enumerate(gc_modules):
@@ -235,11 +236,12 @@ def plotPhaseOffsetDetector(gc_modules, p_array_modules, n_theta, n_xy):
 
     plt.show()
 
-def plotSheet(sheet):
 
+def plotSheet(sheet):
     plt.imshow(sheet, origin="lower")
     plt.colorbar()
     plt.show()
+
 
 def plotSinglePhaseOffsetDetector(gc, pod):
     plotVector(gc.s)
@@ -269,6 +271,7 @@ def plotSinglePhaseOffsetDetector(gc, pod):
     p = pod.calculate_p(gc.s, gc.t)
     print("p", p)
 
+
 def plotTrajectoryWithVector(xy_coordinates, vec_array, step_size, i):
     x, y = zip(*xy_coordinates)
     x = x[:i]
@@ -278,34 +281,34 @@ def plotTrajectoryWithVector(xy_coordinates, vec_array, step_size, i):
     plt.scatter(x, y, s=0.2)
 
     if i != 0:
-        for j in range(int(i/step_size) + 1):
-                vec = vec_array[j]
-                length = np.linalg.norm(vec)
-                if length != 0:
-                    n_vec = vec / length
-                    # n_vec = vec * 10**3
-                    if j * step_size < len(x):
-                        xi = x[j * step_size]
-                        yi = y[j * step_size]
-                    else:
-                        xi = x[-1]
-                        yi = y[-1]
-                    label = str(j * step_size)
+        for j in range(int(i / step_size) + 1):
+            vec = vec_array[j]
+            length = np.linalg.norm(vec)
+            if length != 0:
+                n_vec = vec / length
+                # n_vec = vec * 10**3
+                if j * step_size < len(x):
+                    xi = x[j * step_size]
+                    yi = y[j * step_size]
+                else:
+                    xi = x[-1]
+                    yi = y[-1]
+                label = str(j * step_size)
 
-                    plt.annotate(label,  # this is the text
-                                 (xi, yi),  # this is the point to label
-                                 textcoords="offset points",  # how to position the text
-                                 xytext=(0, 10),  # distance from text to points (x,y)
-                                 ha='center')  # horizontal alignment can be left, right or center
+                plt.annotate(label,  # this is the text
+                             (xi, yi),  # this is the point to label
+                             textcoords="offset points",  # how to position the text
+                             xytext=(0, 10),  # distance from text to points (x,y)
+                             ha='center')  # horizontal alignment can be left, right or center
 
-                    label2 = '{:.2e}'.format(length)
-                    plt.annotate(label2,  # this is the text
-                                 (xi, yi),  # this is the point to label
-                                 textcoords="offset points",  # how to position the text
-                                 xytext=(0, - 10),  # distance from text to points (x,y)
-                                 ha='center')  # horizontal alignment can be left, right or center
+                label2 = '{:.2e}'.format(length)
+                plt.annotate(label2,  # this is the text
+                             (xi, yi),  # this is the point to label
+                             textcoords="offset points",  # how to position the text
+                             xytext=(0, - 10),  # distance from text to points (x,y)
+                             ha='center')  # horizontal alignment can be left, right or center
 
-                    plt.quiver(*[xi, yi], n_vec[0], n_vec[1], scale=10)
+                plt.quiver(*[xi, yi], n_vec[0], n_vec[1], scale=10)
 
     plt.axis('equal')
     plt.legend(['Trajectory'])
@@ -313,6 +316,7 @@ def plotTrajectoryWithVector(xy_coordinates, vec_array, step_size, i):
     # plt.plot(orientation_angle)
     # plt.legend(['angle'])
     plt.show()
+
 
 def plot3DSheet(s_vectors):
     fig = plt.figure()
@@ -325,7 +329,7 @@ def plot3DSheet(s_vectors):
         x, y = np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
         X, Y = np.meshgrid(x, y)
 
-        ax = fig.add_subplot(2, int(len(s_vectors)/2), idx + 1, projection='3d')
+        ax = fig.add_subplot(2, int(len(s_vectors) / 2), idx + 1, projection='3d')
         ax.plot_surface(X, Y, sheet, cmap='plasma')
         ax.set_zlim(0, np.max(sheet) + 2)
     plt.show()
@@ -348,7 +352,6 @@ def plotSheetsWithMaxima(s, t, s_max, t_max):
 
 
 def plotCurrentAndTarget(gc_modules, virtual=False):
-
     fig = plt.figure()
 
     for m, gc in enumerate(gc_modules):
@@ -365,7 +368,6 @@ def plotCurrentAndTarget(gc_modules, virtual=False):
 
 
 def plotCurrentAndTargetMatched(gc_modules, matches_array, vectors_array):
-
     fig = plt.figure()
 
     for m, gc in enumerate(gc_modules):
@@ -404,7 +406,7 @@ def plot_angles(real_trajectory, target, vec_array1=None, vec_array2=None, vec_a
     if len(real_trajectory) < start:
         start = 0
     stop = len(real_trajectory)
-    num = int((stop-start))
+    num = int((stop - start))
     x = np.linspace(start, stop, num=num)
 
     if vec_array1 is not None and len(vec_array1) > 0:
@@ -450,7 +452,6 @@ def plot_angles(real_trajectory, target, vec_array1=None, vec_array2=None, vec_a
 def plot_current_state(env, gc_modules, f_gc, f_t, f_mon,
                        matches_array=None, vectors_array=None, pc_active_array=None,
                        pc_network=None, cognitive_map=None, exploration_phase=False, goal_vector=None):
-
     xy_coordinates = env.xy_coordinates
 
     # Trajectory plot
@@ -477,7 +478,6 @@ def plot_current_state(env, gc_modules, f_gc, f_t, f_mon,
     add_environment(f_t, env.env_model)
     add_robot(f_t, env)
 
-
     # Grid Cell Modules plot
     for m, gc in enumerate(gc_modules):
         if m < 4:
@@ -503,7 +503,8 @@ def plot_current_state(env, gc_modules, f_gc, f_t, f_mon,
                 origin_x, origin_y = zip(*list(vectors.keys()))
                 vectors_x, vectors_y = zip(*list(vectors.values()))
 
-                f_gc[m].quiver(origin_x, origin_y, vectors_x, vectors_y, color=TUM_colors['TUMDarkGray'], width=0.01, scale=1, scale_units='xy')
+                f_gc[m].quiver(origin_x, origin_y, vectors_x, vectors_y, color=TUM_colors['TUMDarkGray'], width=0.01,
+                               scale=1, scale_units='xy')
 
     # Description Plot
     f_mon.clear()
@@ -515,7 +516,8 @@ def plot_current_state(env, gc_modules, f_gc, f_t, f_mon,
     f_mon.annotate(description_string, xy=(0, 0.8), fontweight='bold')
 
     if goal_vector is not None and not exploration_phase:
-        goal_vector_string = r"Computed vector: [" + "{:.2f}".format(goal_vector[0]) + ", " + "{:.2f}".format(goal_vector[1]) + "]"
+        goal_vector_string = r"Computed vector: [" + "{:.2f}".format(goal_vector[0]) + ", " + "{:.2f}".format(
+            goal_vector[1]) + "]"
         f_mon.annotate(goal_vector_string, xy=(0, 0.6))
 
         actual_vector = env.goal_location - xy_coordinates[-1]
@@ -526,8 +528,6 @@ def plot_current_state(env, gc_modules, f_gc, f_t, f_mon,
         error_vector = actual_vector - goal_vector
         error_string = r"Error: " + "{:.2f}".format(np.linalg.norm(error_vector))
         f_mon.annotate(error_string, xy=(0, 0.4))
-
-
 
 
 def layout_video():
@@ -556,7 +556,6 @@ def layout_video():
 
 
 def place_cell_plot(xy_coordinates, pc_active_array):
-
     x, y = zip(*xy_coordinates)
     plt.figure()
     idx_pc_active = np.array(pc_active_array)[:, 0] + 5
@@ -577,7 +576,6 @@ def error_plot(error_array):
 
 
 def cognitive_map_plot(pc_network, cognitive_map, xy_coordinates=None, pc_active_array=None, environment=None):
-
     plt.figure()
 
     if xy_coordinates is not None:
@@ -594,7 +592,7 @@ def cognitive_map_plot(pc_network, cognitive_map, xy_coordinates=None, pc_active
     ax = plt.gca()
     for i, pc in enumerate(pc_network.place_cells):
         circle = plt.Circle((pc.env_coordinates[0], pc.env_coordinates[1]), 0.3,
-                            fc='r', alpha=cognitive_map.reward_cells[i]**2 * 0.6, ec='k')
+                            fc='r', alpha=cognitive_map.reward_cells[i] ** 2 * 0.6, ec='k')
         ax.add_artist(circle)
         circle_border = plt.Circle((pc.env_coordinates[0], pc.env_coordinates[1]), 0.3,
                                    alpha=0.2, ec='k', fill=False)
@@ -657,7 +655,6 @@ def plot_linear_lookahead(f_gc, f_t, f_mon, frame, gc_network, xy_coordinates=No
 
 
 def export_linear_lookahead_video(gc_network, filename, xy_coordinates=None, reward_array=None, goal_found=None):
-
     [fig, f_gc, f_t, f_mon] = layout_video()
     fps = 5
     length = len(gc_network.gc_modules[0].s_video_array)
@@ -679,7 +676,6 @@ def export_linear_lookahead_video(gc_network, filename, xy_coordinates=None, rew
 
 def plot_sub_goal_localization(env, cognitive_map, pc_network, goal_spiking,
                                goal_vector, chosen_idx):
-
     xy_coordinates = env.xy_coordinates
     fig = plt.figure()
 
@@ -709,7 +705,6 @@ def plot_sub_goal_localization(env, cognitive_map, pc_network, goal_spiking,
 
     x, y = zip(*xy_coordinates)
     plt.scatter(x[0], y[0], color="red", s=1)
-
 
     # Plot robot
     add_robot(ax, env)
@@ -735,7 +730,6 @@ def plot_sub_goal_localization(env, cognitive_map, pc_network, goal_spiking,
 
 def plot_sub_goal_localization_pod(env, cognitive_map, pc_network, sub_goal_dict,
                                    goal_vector, chosen_idx):
-
     xy_coordinates = env.xy_coordinates
     fig = plt.figure()
 
@@ -766,11 +760,10 @@ def plot_sub_goal_localization_pod(env, cognitive_map, pc_network, sub_goal_dict
     x, y = zip(*xy_coordinates)
     plt.scatter(x[0], y[0], color="red", s=1)
 
-
     # Plot robot
     add_robot(ax, env)
 
-    plt.quiver(x[-1], y[-1], goal_vector[0], goal_vector[1], angles='xy', scale_units='xy', scale=1,)
+    plt.quiver(x[-1], y[-1], goal_vector[0], goal_vector[1], angles='xy', scale_units='xy', scale=1, )
 
     for idx, pc_idx in enumerate(sub_goal_dict):
 
@@ -786,8 +779,8 @@ def plot_sub_goal_localization_pod(env, cognitive_map, pc_network, sub_goal_dict
 
     plt.show()
 
-def plot_angle_detection(ray_dist, obstacle_angles, valid_vectors):
 
+def plot_angle_detection(ray_dist, obstacle_angles, valid_vectors):
     fig = plt.figure()
     for idx in ray_dist:
         if ray_dist[idx]["dist"] < 1.2:
@@ -803,9 +796,6 @@ def plot_angle_detection(ray_dist, obstacle_angles, valid_vectors):
     plt.ylim(-0.7, 0.7)
     plt.show()
     plt.close()
-
-
-
 
 # import os
 # dirname = os.path.dirname(__file__)

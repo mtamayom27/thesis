@@ -3,14 +3,14 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
+from system.bio_model.gridcellModel import GridCellNetwork
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network
 from system.bio_model.placecellModel import PlaceCellNetwork
-from system.bio_model.cognitivemap import LifelongCognitiveMap
-import system.plotting.plotResults as plot
+from system.bio_model.cognitivemap import LifelongCognitiveMap, CognitiveMapInterface
 
-plotting = False  # if True: plot paths
+plotting = True  # if True: plot paths
 debug = True  # if True: print debug output
 
 
@@ -20,7 +20,7 @@ def print_debug(*params):
         print(*params)
 
 
-def waypoint_movement(path, env_model, creation_type, connection_type, connection):
+def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_network: PlaceCellNetwork, cognitive_map: CognitiveMapInterface):
     """ Agent navigates on path, 
         exploring the environment and building the cognitive map
     
@@ -32,40 +32,30 @@ def waypoint_movement(path, env_model, creation_type, connection_type, connectio
 
     # get the path through the environment
     mapLayout = MapLayout(env_model)
-    waypoints = []
+    goals = []
     for i in range(len(path) - 1):
         new_wp = mapLayout.find_path(path[i], path[i + 1])
         if new_wp is None:
             raise ValueError("No path found!")
-        waypoints += new_wp
+        goals += new_wp
         if plotting:
             mapLayout.draw_map_path(path[i], path[i + 1])
 
     # draw the path
     if plotting:
-        mapLayout.draw_path(path)
-
-    goals = waypoints
+        mapLayout.draw_path(goals)
 
     env = PybulletEnvironment(False, 1e-2, env_model, "analytical", buildDataSet=True, start=path[0])
 
-    # Setup grid cells, place cells and the cognitive map
-    gc_network = setup_gc_network(1e-2)
-    pc_network = PlaceCellNetwork(re_type=creation_type)
-    # TODO: add setting
-    #cognitive_map = CognitiveMap(re_type=connection_type, connection=connection, env_model=env_model)
-    cognitive_map = LifelongCognitiveMap(re_type=connection_type, connection=connection, env_model=env_model)
-
     # The local controller navigates the path analytically and updates the pc_netowrk and the cognitive_map
-    i = 0
-    for i, g in enumerate(goals):
-        print_debug("new waypoint", g, i / len(goals) * 100)
-        vector_navigation(env, g, gc_network, model="analytical", step_limit=5000,
+    for i, goal in enumerate(goals):
+        print_debug(f"new waypoint with coordinates {goal}.", f'{i / len(goals) * 100} % completed.')
+        vector_navigation(env, goal, gc_network, model="analytical", step_limit=5000,
                           plot_it=False, exploration_phase=(pc_network, cognitive_map))
 
     # plot the trajectory
-    if plotting:
-        plot.plotTrajectoryInEnvironment(env, pc_network=pc_network)
+    # if plotting:
+    #     plot.plotTrajectoryInEnvironment(env, pc_network=pc_network)
     env.end_simulation()
     cognitive_map.postprocess()
     return pc_network, cognitive_map
@@ -95,7 +85,14 @@ def exploration_path(env_model, creation_type, connection_type, connection):
         pass
 
     # explore and generate
-    pc_network, cognitive_map = waypoint_movement(goals, env_model, creation_type, connection_type, connection)
+    # Setup grid cells, place cells and the cognitive map
+    gc_network = setup_gc_network(1e-2)
+    pc_network = PlaceCellNetwork(re_type=creation_type)
+    # TODO: add setting
+    # cognitive_map = CognitiveMap(re_type=connection_type, connection=connection, env_model=env_model)
+    cognitive_map = LifelongCognitiveMap(re_type=connection_type, env_model=env_model)
+
+    pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map)
 
     # save place cell network and cognitive map
     pc_network.save_pc_network()
@@ -117,8 +114,8 @@ if __name__ == "__main__":
     - connection: ("all","instant"), ("radius", "delayed")
     """
 
-    creation_re_type = "firing"
-    connection_re_type = "simulation"
+    creation_re_type = "distance"
+    connection_re_type = "distance"
     connection = ("radius", "delayed")
 
     exploration_path("Savinov_val3", creation_re_type, connection_re_type, connection)

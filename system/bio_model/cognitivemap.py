@@ -14,11 +14,10 @@ import numpy as np
 import sys
 import os
 
-from system.utils import shuffled, sample_normal
-from placecellModel import PlaceCell
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+from system.utils import shuffled, sample_normal
+from system.bio_model.placecellModel import PlaceCell
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
 
 def get_path_re():
@@ -105,8 +104,9 @@ class CognitiveMapInterface:
         directory = os.path.join(get_path_top(), "data/cognitive_map")
         if not os.path.exists(directory):
             raise ValueError("cognitive map not found")
-
         self.node_network = nx.read_gpickle(os.path.join(directory, "cognitive_map.gpickle"))
+        if debug:
+            self.draw_cognitive_map()
 
     def draw_cognitive_map(self):
         """ Plot the cognitive map """
@@ -120,6 +120,9 @@ class CognitiveMapInterface:
         # Plots the graph without labels
         # nx.draw(G,pos,node_color='#0065BD',node_size = 50, edge_color = '#CCCCC6')
         plt.show()
+
+    def postprocess(self):
+        pass
 
 
 class CognitiveMap(CognitiveMapInterface):
@@ -345,18 +348,27 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         """Check if the waypoint p is mergeable with the existing graph"""
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
+    def shuffle_heuristic(self):
+        nodes_mean = np.mean([x.env_coordinates for x in self.trajectory_nodes], axis=0)
+        distances = [np.linalg.norm(x.env_coordinates - nodes_mean) for x in self.trajectory_nodes]
+        return np.take(self.trajectory_nodes, np.argsort(distances))
+
     def construct_graph(self):
+        if len(self.trajectory_nodes) == 0:
+            return
+
         # TODO: more clever node choosing here
         self.add_node_to_map(self.trajectory_nodes.pop(0))  # Initialize graph with the first element from trajectories
 
         updated = True
         while updated:
             updated = False
-            for candidate in shuffled(self.trajectory_nodes):
+            shuffled_candidates = self.shuffle_heuristic()
+            for candidate in shuffled_candidates:
                 if self.is_mergeable(candidate):
                     self.trajectory_nodes.remove(candidate)
                 else:
-                    for existing_node in self.node_network.nodes:
+                    for existing_node in list(self.node_network.nodes):
                         connectable, weight = self.is_connectable(candidate, existing_node)
                         if connectable:
                             if candidate not in self.node_network.nodes:
@@ -368,6 +380,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                                                connectivity_probability=1.0, mu=weight,
                                                                sigma=self.sigma)
                             updated = True
+
+        print_debug(f'remaining nodes: {self.trajectory_nodes}')
 
     def postprocess(self):
         self.construct_graph()
@@ -410,7 +424,8 @@ if __name__ == "__main__":
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     connection = ("radius", "delayed")
-    cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
+    # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
+    cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model="Savinov_val3")
 
     # Update and Save the cognitive map
     cm.postprocess()

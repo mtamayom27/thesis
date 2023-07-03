@@ -263,10 +263,10 @@ if __name__ == "__main__":
     from system.controller.simulation.pybulletEnv import PybulletEnvironment
 
     if not experiment:
-        env_model = "plane"
+        # env_model = "plane"
         # env_model = "Savinov_test7"
         # env_model = "Savinov_val2"
-        # env_model = "Savinov_val3"
+        env_model = "Savinov_val3"
 
         # Adjust start and goal
         start = [-6, -0.5]
