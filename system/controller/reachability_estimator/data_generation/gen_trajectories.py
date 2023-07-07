@@ -143,7 +143,7 @@ def waypoint_movement(env_model,cam_freq,traj_length):
     goals = waypoints
     visualize=False
     dt = 1e-2
-    env = PybulletEnvironment(visualize,dt,env_model,"analytical",buildDataSet=True,start=start)
+    env = PybulletEnvironment(visualize, dt, env_model,"analytical", build_data_set=True, start=start)
     gc_network = setup_gc_network(dt)
     
     samples = []

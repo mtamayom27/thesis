@@ -13,7 +13,7 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-# TODO RESOLVE EVERYTHIN HERE WTF
+
 from plotting.helper import compute_theta, compute_axis_limits
 from plotting.plotHelper import *
 
@@ -121,21 +121,23 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
         G = cognitive_map.node_network
         pos = nx.get_node_attributes(G, 'pos')
         # nx.draw(G,pos,node_color='#0065BD',node_size=10)
-        nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=600)
-        # nx.draw_networkx_edges(G,pos,edge_color='#CCCCC6')
+        nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=60)
+        nx.draw_networkx_edges(G, pos, edge_color='#CCCCC6')
 
         if path:
-            # draw_path
+            # draw_pathgbf
             path_edges = list(zip(path, path[1:]))
-            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E37222', node_size=600)
+            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
             G = G.to_undirected()
-            nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E37222', width=3)
+            nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
 
     x, y = zip(*xy_coordinates)
     ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10)
 
-    add_robot(ax, env)
-    if env.goal_pos: add_goal(ax, env)
+
+    # add_robot(ax, env)
+    # if env.goal_pos:
+        # add_goal(ax, env)
 
     # add title
     plt.title(title)

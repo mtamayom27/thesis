@@ -15,7 +15,7 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from system.utils import shuffled, sample_normal
+from system.utils import sample_normal
 from system.bio_model.placecellModel import PlaceCell
 from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
@@ -58,9 +58,9 @@ class CognitiveMapInterface:
                                                            debug=debug)
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
         if from_data:
-            self.load_cognitive_map()
+            self.load()
 
-    def track_movement(self, pc_firing, created_new_pc, pc):
+    def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         pass
 
     def find_path(self, start, goal):
@@ -90,7 +90,7 @@ class CognitiveMapInterface:
         self.node_network.add_edge(p, q, weight=w, **kwargs)
         self.node_network.add_edge(q, p, weight=w, **kwargs)
 
-    def save_cognitive_map(self):
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
         """ Store the current state of the node_network """
 
         directory = os.path.join(get_path_top(), "data/cognitive_map")
@@ -99,16 +99,16 @@ class CognitiveMapInterface:
 
         nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
 
-    def load_cognitive_map(self):
+    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
         """ Load existing cognitive map """
-        directory = os.path.join(get_path_top(), "data/cognitive_map")
+        directory = os.path.join(get_path_top(), relative_folder)
         if not os.path.exists(directory):
             raise ValueError("cognitive map not found")
-        self.node_network = nx.read_gpickle(os.path.join(directory, "cognitive_map.gpickle"))
+        self.node_network = nx.read_gpickle(os.path.join(directory, filename))
         if debug:
-            self.draw_cognitive_map()
+            self.draw()
 
-    def draw_cognitive_map(self):
+    def draw(self):
         """ Plot the cognitive map """
         import matplotlib.pyplot as plt
         G = self.node_network
@@ -118,10 +118,13 @@ class CognitiveMapInterface:
         nx.draw(G, pos, labels={i: str(list(G.nodes).index(i)) for i in list(G.nodes)})
 
         # Plots the graph without labels
-        # nx.draw(G,pos,node_color='#0065BD',node_size = 50, edge_color = '#CCCCC6')
+        # nx.draw(G, pos, node_color='#0065BD', node_size=50, edge_color='#CCCCC6')
         plt.show()
 
     def postprocess(self):
+        pass
+
+    def update_map(self, node_p, node_q, observation_q, observation_p):
         pass
 
 
@@ -206,19 +209,19 @@ class CognitiveMap(CognitiveMapInterface):
             self._connect_single_node(p)
             print_debug("connecting finished")
 
-    def track_movement(self, pc_firing, created_new_pc, pc: PlaceCell):
+    def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Keeps track of curren/t place cell firing and creation of new place cells"""
 
         # get the currently active place cell
         idx_pc_active = np.argmax(pc_firing)
-        pc_active = np.max(pc_firing)
+        pc_active_firing = np.max(pc_firing)
 
         # Check if we have entered a new place cell
         if created_new_pc:
             entered_different_pc = True
             self.add_node_to_map(pc)
 
-        elif pc_active > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
+        elif pc_active_firing > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
             entered_different_pc = True
         else:
             entered_different_pc = False
@@ -233,13 +236,13 @@ class CognitiveMap(CognitiveMapInterface):
 
             self.prior_idx_pc_firing = idx_pc_active
 
-    def save_cognitive_map(self):
-        CognitiveMapInterface.save_cognitive_map(self)
-        directory = os.path.join(get_path_top(), "data/cognitive_map")
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+        CognitiveMapInterface.save(self)
+        directory = os.path.join(get_path_top(), relative_folder)
 
         if self.connection[1] == "delayed":
             self.update_reachabilities()
-            nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
+            nx.write_gpickle(self.node_network, os.path.join(directory, filename))
 
     def test_place_cell_network(self, env, gc_network, from_data=False):
         """ Test the drift error of place cells stored in the cognitive map """
@@ -333,11 +336,11 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.p_s_given_r = 0.55
         self.p_s_given_not_r = 0.15
 
-    def track_movement(self, pc_firing, created_new_pc, pc: PlaceCell):
+    def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Collects nodes"""
-
+        exploration_phase = kwargs.get('exploration_phase', True)
         # Check if we have entered a new place cell
-        if created_new_pc:
+        if exploration_phase and created_new_pc:
             self.trajectory_nodes.append(pc)
 
     def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
@@ -386,7 +389,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
     def postprocess(self):
         self.construct_graph()
 
-    def update_edge(self, node_p, node_q, observation_q, observation_p):
+    def update_map(self, node_p, node_q, observation_p, observation_q):
         success = self.reach_estimator.get_reachability(observation_q, node_q)[0]
         edge = self.node_network[node_p][node_q]
 
@@ -429,10 +432,10 @@ if __name__ == "__main__":
 
     # Update and Save the cognitive map
     cm.postprocess()
-    cm.save_cognitive_map()
+    cm.save()
 
     # Draw the cognitive map
-    cm.draw_cognitive_map()
+    cm.draw()
 
     testing = True
     if testing:
@@ -447,7 +450,7 @@ if __name__ == "__main__":
 
         # environment setup
         dt = 1e-2
-        env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", buildDataSet=True,
+        env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True,
                                   start=list(list(cm.node_network)[1].env_coordinates))
 
         # set current grid cell spikings of the agent

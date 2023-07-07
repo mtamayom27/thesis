@@ -10,9 +10,11 @@
 '''
 import numpy as np
 
+from system.bio_model.gridcellModel import GridCellNetwork
+
 active_threshold = 0.85
 
-def perform_look_ahead_2xnr(gc_network, env):
+def perform_look_ahead_2xnr(gc_network: GridCellNetwork, env):
     """Performs a linear lookahead to find an offset in grid cell spiking in either x or y direction."""
     gc_network.reset_s_virtual()  # Resets virtual gc spiking to actual spiking
 

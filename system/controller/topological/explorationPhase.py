@@ -45,13 +45,13 @@ def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_netw
     if plotting:
         mapLayout.draw_path(goals)
 
-    env = PybulletEnvironment(False, 1e-2, env_model, "analytical", buildDataSet=True, start=path[0])
+    env = PybulletEnvironment(False, 1e-2, env_model, "analytical", build_data_set=True, start=path[0])
 
     # The local controller navigates the path analytically and updates the pc_netowrk and the cognitive_map
     for i, goal in enumerate(goals):
         print_debug(f"new waypoint with coordinates {goal}.", f'{i / len(goals) * 100} % completed.')
         vector_navigation(env, goal, gc_network, model="analytical", step_limit=5000,
-                          plot_it=False, exploration_phase=(pc_network, cognitive_map))
+                          plot_it=False, exploration_phase=True, pc_network=pc_network, cognitive_map=cognitive_map)
 
     # plot the trajectory
     # if plotting:
@@ -96,11 +96,11 @@ def exploration_path(env_model, creation_type, connection_type, connection):
 
     # save place cell network and cognitive map
     pc_network.save_pc_network()
-    cognitive_map.save_cognitive_map()
+    cognitive_map.save()
 
     # draw the cognitive map
     if plotting:
-        cognitive_map.draw_cognitive_map()
+        cognitive_map.draw()
 
 
 if __name__ == "__main__":

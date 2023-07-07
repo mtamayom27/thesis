@@ -13,7 +13,8 @@ import types
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..",".."))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 
 def get_path_re():
@@ -30,12 +31,13 @@ def get_path_top():
 
 class PlaceCell:
     """Class to keep track of an individual Place Cell"""
+
     def __init__(self, gc_connections, observations, coordinates):
         self.gc_connections = gc_connections  # Connection matrix to grid cells of all modules; has form (n^2 x M)
         self.env_coordinates = coordinates  # Save x and y coordinate at moment of creation
 
         self.plotted_found = [False, False]  # Was used for debug plotting, of linear lookahead
-        
+
         self.observations = observations
 
     def compute_firing(self, s_vectors):
@@ -76,7 +78,7 @@ class PlaceCell:
                 firing = firing + np.sum(filtered_vector) / norm[idx]  # normalize firing and add to firing
                 modules_firing = modules_firing + 1
 
-        firing = firing/modules_firing  # divide by modules that we considered to get overall firing
+        firing = firing / modules_firing  # divide by modules that we considered to get overall firing
 
         # # Plotting options, used for linear lookahead debugging
         # if plot:
@@ -94,7 +96,6 @@ class PlaceCell:
 
 
 def compute_weights(s_vectors):
-
     # weights = np.where(s_vectors > 0.1, 1, 0)
     weights = np.array(s_vectors)  # decided to not change anything here, but do it when computing firing
 
@@ -103,7 +104,8 @@ def compute_weights(s_vectors):
 
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
-    def __init__(self, from_data=False, re_type="distance",):
+
+    def __init__(self, from_data=False, re_type="distance", ):
         """ Place Cell Network  of the environment. 
         
         arguments:
@@ -117,11 +119,11 @@ class PlaceCellNetwork:
         self.re_type = re_type
         filename = "trained_model_pair_conv.30"
         filepath = os.path.join(get_path_re(), filename)
-        
+
         if not self.re_type == "firing":
             self.reach_estimator = init_reachability_estimator(re_type, weights_file=filepath)
-        
-        #thresholds for place cell creation
+
+        # thresholds for place cell creation
         if self.re_type == "distance":
             self.creation_threshold = 0.5
         elif self.re_type == "neural_network":
@@ -132,7 +134,7 @@ class PlaceCellNetwork:
             self.creation_threshold = 0.90
         elif self.re_type == "view_overlap":
             self.creation_threshold = 0.4
-        
+
         self.place_cells = []  # array of place cells
 
         if from_data:
@@ -147,7 +149,7 @@ class PlaceCellNetwork:
                 pc = PlaceCell(gc_connection, observations[idx], env_coordinates[idx])
                 self.place_cells.append(pc)
 
-    def create_new_pc(self, gc_modules,obs,coordinates):
+    def create_new_pc(self, gc_modules, obs, coordinates):
         # Consolidate grid cell spiking vectors to matrix of size n^2 x M
         s_vectors = np.empty((len(gc_modules), len(gc_modules[0].s)))
         for m, gc in enumerate(gc_modules):
@@ -155,7 +157,7 @@ class PlaceCellNetwork:
         weights = compute_weights(s_vectors)
         pc = PlaceCell(weights, obs, coordinates)
         self.place_cells.append(pc)
-        
+
     def in_range(self, reach):
         """ Determine whether one value meets the threshold """
         if self.re_type == "distance":
@@ -174,30 +176,19 @@ class PlaceCellNetwork:
             r = np.max(reach)
             return r > self.creation_threshold
 
-    def track_movement(self, gc_modules, reward_first_found, obs, coordinates, maze = None):
+    def track_movement(self, gc_modules, observations, coordinates):
         """Keeps track of current grid cell firing"""
-        
-        firing_values = self.compute_firing_values(gc_modules)
 
-        #reformat observation images 
-        # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
-        if len(obs)<10:
-            obs += [obs[-1]] * (10 - len(obs))
-        dst_imgs = []
-        dat = obs
-        for dt in dat:
-            img = np.transpose(dt[2], (2, 0, 1))
-            img = img[:3]
-            dst_imgs.append(img)
+        firing_values = self.compute_firing_values(gc_modules)
 
         if self.re_type == "firing":
             firing = firing_values
         else:
-            firing = self.compute_reachability_values(coordinates, dst_imgs)
+            firing = self.compute_reachability_values(coordinates, observations)
 
         created_new_pc = False
         if len(firing_values) == 0 or not self.in_range(firing):
-            self.create_new_pc(gc_modules, dst_imgs, coordinates)
+            self.create_new_pc(gc_modules, observations, coordinates)
             firing_values.append(1)
             created_new_pc = True
 
@@ -222,7 +213,7 @@ class PlaceCellNetwork:
                 firing = pc.compute_firing(s_vectors)  # overall firing
             firing_values.append(firing)
         return firing_values
-    
+
     def compute_reachability_values(self, coordinates, observations):
         """ Compute reachability values from all cells to current state, breaks when reachable """
         firing_values = []
@@ -233,11 +224,11 @@ class PlaceCellNetwork:
             # compute reachability value from all place cells to the goal
             firing = self.reach_estimator.predict_reachability(pc, goal)
             firing_values.append(firing)
-            
+
             # if one place cell is still in range we do not need to compute the rest
             if self.in_range([firing]):
                 break
-            
+
         return firing_values
 
     def save_pc_network(self, filename=""):
@@ -250,13 +241,10 @@ class PlaceCellNetwork:
             env_coordinates.append(pc.env_coordinates)
             observations.append(pc.observations)
 
-        directory = os.path.join(get_path_top(),"data/pc_model")
+        directory = os.path.join(get_path_top(), "data/pc_model")
         if not os.path.exists(directory):
             os.makedirs(directory)
-            
-        np.save(os.path.join(directory,"gc_connections" + filename + ".npy"), gc_connections)
-        np.save(os.path.join(directory,"env_coordinates" + filename + ".npy"), env_coordinates)
-        np.save(os.path.join(directory,"observations" + filename + ".npy"), observations)
 
-
-
+        np.save(os.path.join(directory, "gc_connections" + filename + ".npy"), gc_connections)
+        np.save(os.path.join(directory, "env_coordinates" + filename + ".npy"), env_coordinates)
+        np.save(os.path.join(directory, "observations" + filename + ".npy"), observations)

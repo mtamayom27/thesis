@@ -12,6 +12,9 @@
 import os
 import sys
 
+from system.bio_model.cognitivemap import CognitiveMapInterface
+from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from system.controller.local_controller.decoder.linearLookaheadNoRewards import *
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
@@ -87,10 +90,10 @@ def create_gc_spiking(start, goal):
         if i == 5000:
             raise ValueError("Agent should not get caught in a loop in an empty plane.")
         env.navigation_step(gc_network, obstacles=False)
-        over = env.run_over()
-        if over == -1:
+        status = env.get_status()
+        if status == -1:
             raise ValueError("Agent should not get stuck in an empty plane.")
-        elif over == 1:
+        elif status == 1:
             if plotting: plot.plotTrajectoryInEnvironment(env)
             env.end_simulation()
             return gc_network.consolidate_gc_spiking()
@@ -110,9 +113,21 @@ def setup_gc_network(dt):
     return gc_network
 
 
+def get_observations(env):
+    # TODO Johanna: parameterize context length and delta T
+    # observations with context length k=10 and delta T = 3
+    observations = env.images[::3][-10:]
+    # reformat observation images
+    # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
+    if len(observations) < 10:
+        observations += [observations[-1]] * (10 - len(observations))
+    return [np.transpose(observation[2], (2, 0, 1))[:3] for observation in observations]
+
+
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True,
-                      collect_data_traj=False, collect_data_reachable=False, exploration_phase=False):
+                      collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,
+                      pc_network: PlaceCellNetwork = None, cognitive_map: CognitiveMapInterface = None):
     """ 
     Agent navigates towards goal.
     
@@ -145,9 +160,6 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     else:
         env.mode = model
 
-    if exploration_phase:
-        pc_network, cognitive_map = exploration_phase
-
     # initialize phase-offset decoder
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
@@ -170,25 +182,19 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     while n < step_limit and not stop:
         env.navigation_step(gc_network, pod, obstacles=obstacles)
 
-        if exploration_phase:
+        if pc_network is not None and cognitive_map is not None:
+            observations = get_observations(env)
+            [firing_values, created_new_pc] = pc_network.track_movement(gc_network.gc_modules, observations,
+                                                                        env.xy_coordinates[-1])
 
-            # TODO Johanna: parameterize context length and delta T
-            # observations with context length k=10 and delta T = 3 
-            obs = env.images[::3][-10:]
-            [firing_values, created_new_pc] = pc_network.track_movement(gc_network.gc_modules, False, obs,
-                                                                        env.xy_coordinates[-1], maze=env.env_model)
-            if created_new_pc:
-                # add coordinates to the new place cell
-                pc_network.place_cells[-1].env_coordinates = np.array(env.xy_coordinates[-1])
+            cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], exploration_phase=exploration_phase)
 
-            cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1])
-
-        over = env.run_over()
-        if over == -1:
+        status = env.get_status()
+        if status == -1:
             # Agent got stuck
             end_state = "Agent got stuck"
             stop = True
-        elif over == 1:
+        elif status == 1:
             if model == "combo" and env.mode == "pod":
                 # In combined mode, switch from pod to linear lookahead
                 env.mode = "linear_lookahead"
@@ -212,11 +218,12 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     if plot_it:
         plot.plotTrajectoryInEnvironment(env, title=end_state)
 
+    pc = PlaceCell(gc_connections=gc_network.gc_modules, observations=get_observations(env), coordinates=env.xy_coordinates[-1])
     if collect_data_traj:
-        return over, data
+        return status, data
     if collect_data_reachable:
-        return over, [sample_after_turn, first_goal_vector]
-    return over, []
+        return status, [sample_after_turn, first_goal_vector]
+    return status, pc
 
 
 if __name__ == "__main__":
@@ -288,7 +295,7 @@ if __name__ == "__main__":
         env = PybulletEnvironment(False, dt, env_model, "analytical", start=start)
 
         vector_navigation(env, goal, gc_network, gc_spiking=target_spiking, model=model, step_limit=float('inf'),
-                          plot_it=True)
+                          plot_it=True, exploration_phase=False)
 
     elif experiment == "vector_navigation":
         import time

@@ -16,7 +16,6 @@ import sys
 import os
 import system.controller.reachability_estimator.networks as networks
 from system.controller.simulation.environment.map_occupancy import MapLayout
-from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
 from system.bio_model.placecellModel import PlaceCell
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -254,6 +253,8 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
         self.env_model = env_model
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
+        from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
+
         """ Return reachability estimate from start to goal using the re_type """
         if not self.env_model:
             raise ValueError("missing env_model; needed for simulating reachability")

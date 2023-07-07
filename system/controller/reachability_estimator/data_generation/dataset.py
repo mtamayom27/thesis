@@ -303,7 +303,7 @@ class ReachabilityDataset(data.Dataset):
     def _make(self, map_name, samples):
         #return img of position
         dt = 1e-2
-        env = PybulletEnvironment(False,dt,map_name,"analytical",buildDataSet=True)
+        env = PybulletEnvironment(False, dt, map_name,"analytical", build_data_set=True)
         imgs = []
         for sample in samples:
             self._set_agent_state(sample)
@@ -384,7 +384,7 @@ class ReachabilityDataset(data.Dataset):
             target_spiking = dst_sample[2].reshape(6,1600)
         
         #Setup environment
-        env = PybulletEnvironment(False,dt,env_model, "combo",buildDataSet = True, start = src_pos, orientation = src_heading)
+        env = PybulletEnvironment(False, dt, env_model, "combo", build_data_set= True, start = src_pos, orientation = src_heading)
         
         if target_spiking is None:
             raise ValueError("There is no target spiking.")
