@@ -3,7 +3,9 @@ from past.builtins import xrange
 import math
 import numpy as np
 import cv2
-#from map_utils_cpp import dijkstra
+import sys
+sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/system/controller/simulation/environment/map_occupancy_helpers")
+from map_utils_cpp import dijkstra
 
 
 def a_star(obstacle_map, start_pos, goal_pos, soft_obstacle_scale=0.0):
@@ -167,7 +169,7 @@ def dijkstra(obstacle_map, start_pos):
 
 
 def dijkstra_fast(obstacle_map, start_pos):
-    return map_utils_cpp.dijkstra(obstacle_map, start_pos[0], start_pos[1])
+    return dijkstra(obstacle_map, start_pos[0], start_pos[1])
 
 
 def rasterize(lines, bbox, division=None, resolution=None):
@@ -208,27 +210,3 @@ def cum_path_length(xys):
     :return: cumulative path length. size of N - 1.
     """
     return np.cumsum(np.linalg.norm(np.array(xys[1:]) - np.array(xys[:-1]), axis=1, ord=2))
-
-
-def rasterize_line(x0, y0, x1, y1):
-    dx = abs(x1 - x0)
-    dy = abs(y1 - y0)
-    ix = 1 if x0 < x1 else -1
-    iy = 1 if y0 < y1 else -1
-    e = 0
-    points = []
-
-    for i in range(dx + dy):
-        points.append((x0, y0))
-        e1 = e + dy
-        e2 = e - dx
-
-        if abs(e1) < abs(e2):
-            x0 += ix
-            e = e1
-        else:
-            y0 += iy
-            e = e2
-
-    points.append((x1, y1))
-    return points

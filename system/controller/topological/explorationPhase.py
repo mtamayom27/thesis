@@ -78,7 +78,8 @@ def exploration_path(env_model, creation_type, connection_type, connection):
             [1, -1.5], [0.5, 1.5], [2.5, -1.5], [1.5, 0],
             [5, -1.5], [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4], [-7.5, -3.5], [1.5, -3.5]
         ]
-        # goals = [[-2,0],[-4,-2.5],[-2,0]]
+        # goals = [[-2, -1.5], [1, -1.5]]
+
     elif env_model == "Savinov_val2":
         pass
     elif env_model == "Savinov_test7":
@@ -109,8 +110,8 @@ if __name__ == "__main__":
     Choose creation and connection as is suitable
 
     See cognitivemap.py for description:
-    - creation_re_type: "firing", "neural_network", "distance", "simulation"
-    - connection_re_type: "firing", "neural_network", "distance", "simulation"
+    - creation_re_type: "firing", "neural_network", "distance", "simulation", "view_overlap"
+    - connection_re_type: "firing", "neural_network", "distance", "simulation", "view_overlap"
     - connection: ("all","instant"), ("radius", "delayed")
     """
 

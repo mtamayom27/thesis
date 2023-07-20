@@ -77,6 +77,12 @@ class CognitiveMapInterface:
 
         return path
 
+    def locate_node(self, pc: PlaceCell):
+        for node in self.node_network.nodes:
+            if self.reach_estimator.is_same(node, pc):
+                return True, node
+        return False, pc
+
     def add_node_to_map(self, p: PlaceCell):
         """ Add a new node to the cognitive map """
         self.node_network.add_node(p, pos=tuple(p.env_coordinates))
@@ -124,7 +130,7 @@ class CognitiveMapInterface:
     def postprocess(self):
         pass
 
-    def update_map(self, node_p, node_q, observation_q, observation_p):
+    def update_map(self, node_p, node_q, observation_q, observation_p, success):
         pass
 
 
@@ -377,21 +383,26 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                             if candidate not in self.node_network.nodes:
                                 self.add_node_to_map(candidate)
                                 self.trajectory_nodes.remove(candidate)
-                            # TODO: in paper here relative form transformation
-                            self.add_bidirectional_edge_to_map(candidate, existing_node,
-                                                               sample_normal(weight, self.sigma),
-                                                               connectivity_probability=1.0, mu=weight,
-                                                               sigma=self.sigma)
+                            self.calculate_and_add_edge(existing_node, candidate, weight)
                             updated = True
 
-        print_debug(f'remaining nodes: {self.trajectory_nodes}')
+        print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
+
+    def calculate_and_add_edge(self, node, pc, reachability_weight):
+        # todo make usable for other re apart from distance
+        connectivity_probability = min(1.0, max((self.reach_estimator.threshold_reachable - reachability_weight * 0.3) / self.reach_estimator.threshold_reachable,0.1))
+        # TODO: in paper here relative form transformation
+        self.add_bidirectional_edge_to_map(pc, node,
+                                           sample_normal(reachability_weight, self.sigma),
+                                           connectivity_probability=connectivity_probability, mu=reachability_weight,
+                                           sigma=self.sigma)
 
     def postprocess(self):
         self.construct_graph()
 
-    def update_map(self, node_p, node_q, observation_p, observation_q):
-        success = self.reach_estimator.get_reachability(observation_q, node_q)[0]
-        edge = self.node_network[node_p][node_q]
+    def update_map(self, node_p, node_q, observation_p, observation_q, success):
+        success = self.reach_estimator.is_same(node_q, observation_q)
+        edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
             if s:
@@ -403,22 +414,45 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             return 1 - self.p_s_given_not_r
 
         # Update connectivity
-        t = conditional_probability(success, True) * edge['connectivity_probability']
-        edge['connectivity_probability'] = t / (t + conditional_probability(success, False) * (1 - edge['connectivity_probability']))
+        t = conditional_probability(success, True) * edges[0]['connectivity_probability']
+        connectivity_probability = t / (t + conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
+        for edge in edges:
+            edge['connectivity_probability'] = connectivity_probability
 
-        if not success and edge['connectivity_probability'] < self.threshold_edge_removal:
+        if not success and connectivity_probability < self.threshold_edge_removal:
             # Prune the edge when p(r_ij^{t+1}|s) < Rp
             self.node_network.remove_edge(node_p, node_q)
             self.node_network.remove_edge(node_q, node_p)
+            print(f"deleting edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+            return
 
         # Update distance weight
         if success:
             weight = self.reach_estimator.get_reachability(observation_p, node_q)[1]
-            sigma_ij_t_squared = edge['sigma'] ** 2
-            mu_ij_t = edge['mu']
-            edge['mu'] = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
-            edge['sigma'] = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
-            edge['weight'] = sample_normal(edge['mu'], edge['sigma'])  # weight ~ N(mu, sigma^2)
+            sigma_ij_t_squared = edges[0]['sigma'] ** 2
+            mu_ij_t = edges[0]['mu']
+            mu = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
+            sigma = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
+            weight = sample_normal(mu, sigma)  # weight ~ N(mu, sigma^2)
+
+            for edge in edges:
+                edge['mu'] = mu
+                edge['sigma'] = sigma
+                edge['weight'] = weight
+
+        print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+
+    def locate_node(self, pc: PlaceCell):
+        existing_node, located_pc = super().locate_node(pc)
+        if existing_node:
+            return existing_node, located_pc
+
+        self.add_node_to_map(pc)
+        for node in self.node_network.nodes:
+            reachable, weight = self.reach_estimator.get_reachability(node, pc)
+            if reachable:
+                self.calculate_and_add_edge(node, pc, weight)
+        return True, pc
 
 
 if __name__ == "__main__":

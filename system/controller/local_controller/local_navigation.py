@@ -58,8 +58,6 @@ def compute_navigation_goal_vector(gc_network, nr_steps, env, model="pod", pod=N
 def find_new_goal_vector(gc_network, env, model, pod=None):
     """For Vector-based navigation, computes goal vector with one grid cell decoder"""
 
-    env.goal_vector_original = env.goal_vector
-
     if model == "pod":
         env.goal_vector = pod.compute_goal_vector(gc_network.gc_modules)
     elif model == "linear_lookahead":
@@ -125,7 +123,7 @@ def get_observations(env):
 
 
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
-                      step_limit=float('inf'), plot_it=False, obstacles=True,
+                      step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
                       collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,
                       pc_network: PlaceCellNetwork = None, cognitive_map: CognitiveMapInterface = None):
     """ 
@@ -160,16 +158,12 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     else:
         env.mode = model
 
-    # initialize phase-offset decoder
-    pod = PhaseOffsetDetectorNetwork(16, 9, 40)
-
     env.goal_pos = goal
-
-    # env.nr_ofsteps=0 #TODO Johanna:For Future Work: trigger instant recalculation of the goal vector
 
     if model != "analytical":
         gc_network.set_as_target_state(gc_spiking)
 
+    env.nr_ofsteps = 0
     env.turn_to_goal(gc_network, pod)
 
     if collect_data_reachable:

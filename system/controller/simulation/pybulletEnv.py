@@ -519,8 +519,7 @@ class PybulletEnvironment:
 
     def calculate_goal_vector_gc(self, gc_network, pod_network):
         """ Uses decoded grid cell spikings as a goal vector. """
-        ret = compute_navigation_goal_vector(gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network)
-        return ret
+        return compute_navigation_goal_vector(gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network)
 
     def get_status(self):
         ''' Returns robot status during navigation
@@ -561,7 +560,8 @@ class PybulletEnvironment:
         elif pod_network:
             self.goal_vector = self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
 
-        if np.linalg.norm(np.array(self.goal_vector)) == 0: return
+        if np.linalg.norm(np.array(self.goal_vector)) == 0:
+            return
 
         i = 0
         while i == 0 or (abs(diff_angle) > 0.05 and i < 5000):

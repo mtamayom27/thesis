@@ -8,12 +8,15 @@ import networkx as nx
 
 from matplotlib import pyplot as plt, animation
 
+from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.bio_model.cognitivemap import LifelongCognitiveMap
 from system.bio_model.placecellModel import PlaceCellNetwork
-from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network
+from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network, \
+    find_new_goal_vector
 import system.plotting.plotResults as plot
 
 # if True plot results
@@ -29,10 +32,10 @@ def save_graphs_to_csv(graphs, file_path='data/history.csv', edge_attributes=Non
         writer = csv.writer(csvfile)
 
         # Write header row with node indices as column names
-        header_row = ['']
-        for graph in graphs:
-            for i in range(len(graph.nodes)):
-                header_row.append(str(i))
+        header_row = []
+        lens = [len(graph.nodes) for graph in graphs]
+        for i in range(max(lens)):
+            header_row.append(str(i))
         writer.writerow(header_row)
 
         # Write data rows for each graph
@@ -43,6 +46,7 @@ def save_graphs_to_csv(graphs, file_path='data/history.csv', edge_attributes=Non
                 for neighbor in graph.neighbors(node):
                     edge_attributes_dict = {}
                     for attr in edge_attributes:
+                        edge_attributes_dict['to'] = list(graph.nodes).index(neighbor)
                         if attr in graph.edges[node, neighbor]:
                             edge_attributes_dict[attr] = graph.edges[node, neighbor][attr]
                     adjacency_list.append(edge_attributes_dict)
@@ -100,6 +104,7 @@ class TrajectoryFollower(object):
         self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
+        self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
     def navigation(self, start=None, goal=None):
         """ Agent navigates through the environment.
@@ -155,26 +160,44 @@ class TrajectoryFollower(object):
         self.gc_network.set_as_current_state(path[0].gc_connections)
 
         # the local controller navigates from subgoal to subgoal
-        # if two consecutive subgoals are missed the navigation is aborted
-        flag = False
+        # if `$stop_threshold` consecutive subgoals are missed the navigation is aborted
+        failed_attempts = 0
+        stop_threshold = 10
         last_pc = path[0]
-        for i, p in enumerate(path[:-1]):
+        i = 0
+        while True:
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
-                                         exploration_phase=False, pc_network=self.pc_network,
+                                         exploration_phase=False, pc_network=self.pc_network, pod=self.pod,
                                          cognitive_map=self.cognitive_map, plot_it=False, step_limit=1000)
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc)
+            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1)
             if plotting:
                 graph_states.append(nx.DiGraph(self.cognitive_map.node_network))
                 positions.append(pc)
-            last_pc = pc
+
             if stop == -1:
-                if flag:
+                failed_attempts += 1
+                if failed_attempts == stop_threshold:
                     break
-                flag = True
+
+                _, last_pc = self.cognitive_map.locate_node(pc)
+
+                new_path = self.cognitive_map.find_path(last_pc, goal)
+                if new_path is None or len(new_path) < 1:
+                    print("NO PATH FOUND")
+                    break
+
+                path[i:] = new_path
+                self.plot_cognitive_map_path(path, env)
             else:
-                flag = False
+                failed_attempts = 0
+                i += 1
+                existing_node, last_pc = self.cognitive_map.locate_node(pc)
+                if i == len(path) - 1:
+                    break
+                if existing_node:
+                    self.plot_cognitive_map_path([last_pc] + path[i:], env)
 
         # plot the agent's trajectory in the environment
         if plotting:
@@ -227,7 +250,9 @@ if __name__ == "__main__":
 
     # setup
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, connection)
-
+    tj.navigation(start=11, goal=57)
+    # tj.navigation(start=111, goal=119)
+    # tj.navigation(start=67, goal=84)
     # example navigation trials
     # tj.navigation(start=110,goal=108)   # Figure 6.13 (a): success, bad path
     # tj.navigation(start=120,goal=110)   # Figure 6.13 (b): success, not on explore path
@@ -246,4 +271,4 @@ if __name__ == "__main__":
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
 
-    tj.navigation()
+    # tj.navigation()

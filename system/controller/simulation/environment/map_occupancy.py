@@ -34,15 +34,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/")
 sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/range_libc/pywrapper")
 sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/range_libc")
+sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/system/controller/simulation/environment/map_occupancy_helpers")
 
 import range_libc
 
-from system.controller.simulation.environment.map_occupancy_helpers.map_utils import a_star, rasterize_line
-from system.controller.simulation.environment.map_occupancy_helpers.math_utils import depth_to_xy_plane, depth_to_xy, \
-    compute_normals
+from map_utils import a_star#, rasterize_line
+from math_utils import depth_to_xy_plane, depth_to_xy, compute_normals
 
 
-# import system.controller.simulation.environment.map_occupancy_helpers.map_utils_cpp as map_cpp
+import map_utils_cpp as map_cpp
 
 class Map(object):
     def __init__(self,
@@ -330,19 +330,19 @@ class Map(object):
         dist_thres_grid = int(distance_thres / self.resolution)
 
         # TODO uncomment when have dylib
-        # return map_cpp.visible(self.map_dist_transform, xx1, yy1, xx2, yy2, dist_thres_grid)
+        return map_cpp.visible(self.map_dist_transform, xx1, yy1, xx2, yy2, dist_thres_grid)
 
         # Equivalent to map_utils_cpp.visible(), but a lot slower.
 
-        h, w = self.map_dist_transform.shape
-        points = rasterize_line(xx1, yy1, xx2, yy2)
-        for x, y in points:
-            if 0 <= x < w and 0 <= y < h and self.map_dist_transform[y, x] > dist_thres_grid:
-                continue
-            else:
-                return False
-
-        return True
+        # h, w = self.map_dist_transform.shape
+        # points = rasterize_line(xx1, yy1, xx2, yy2)
+        # for x, y in points:
+        #     if 0 <= x < w and 0 <= y < h and self.map_dist_transform[y, x] > dist_thres_grid:
+        #         continue
+        #     else:
+        #         return False
+        #
+        # return True
 
     def get_1d_depth(self, pos, n_depth_ray, heading=0.0, fov=np.pi * 2.0):
         '''
