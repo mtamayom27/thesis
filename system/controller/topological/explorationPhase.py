@@ -50,7 +50,7 @@ def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_netw
     # The local controller navigates the path analytically and updates the pc_netowrk and the cognitive_map
     for i, goal in enumerate(goals):
         print_debug(f"new waypoint with coordinates {goal}.", f'{i / len(goals) * 100} % completed.')
-        vector_navigation(env, goal, gc_network, model="analytical", step_limit=5000,
+        vector_navigation(env, goal, gc_network, model="analytical", step_limit=5000, obstacles=False,
                           plot_it=False, exploration_phase=True, pc_network=pc_network, cognitive_map=cognitive_map)
 
     # plot the trajectory
@@ -78,7 +78,7 @@ def exploration_path(env_model, creation_type, connection_type, connection):
             [1, -1.5], [0.5, 1.5], [2.5, -1.5], [1.5, 0],
             [5, -1.5], [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4], [-7.5, -3.5], [1.5, -3.5]
         ]
-        # goals = [[-2, -1.5], [1, -1.5]]
+        # goals = [[2.5, 3.3], [1, -1.5]]
 
     elif env_model == "Savinov_val2":
         pass

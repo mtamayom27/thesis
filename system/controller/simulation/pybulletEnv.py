@@ -170,7 +170,7 @@ class PybulletEnvironment:
         self.tactile_cone = 120  # cone for beams centered on heading direction
         self.ray_length = 1  # length of the beams
         self.mapping = None  # see local_navigation experiments
-        self.combine = None
+        self.combine = 1.5
 
         # threshold for goal_vector length that signals arrival at goal
         self.pod_arrival_threshold = 0.5
@@ -346,10 +346,7 @@ class PybulletEnvironment:
                 normed_goal_vector = np.array([0.0, 0.0])
 
             # combine goal and obstacle vector
-            if self.combine:
-                movement = list(normed_goal_vector * self.combine + obstacle_vector * -1)
-            else:
-                movement = list(normed_goal_vector * 1.5 + obstacle_vector * -1)
+            movement = list(normed_goal_vector * self.combine + obstacle_vector * -1)
         else:
             movement = self.goal_vector
         self.compute_movement(movement)
@@ -375,7 +372,7 @@ class PybulletEnvironment:
         return angle * np.sign(vec[2])
 
     def compute_gains(self, goal_vector):
-        ''' computes the motor gains resulting from (inhibited) goal vector'''
+        """ computes the motor gains resulting from (inhibited) goal vector"""
         current_angle = self.orientation_angle[-1]
         current_heading = [np.cos(current_angle), np.sin(current_angle)]
         diff_angle = self.compute_angle(current_heading, goal_vector) / np.pi
@@ -392,9 +389,8 @@ class PybulletEnvironment:
 
         # For biologically inspired movement: only adjust course slightly
         # TODO Johanna: Future Work: This restricts robot movement too severely
-        max_speed = self.max_speed
-        v_left = max_speed * (1 - diff_angle * 2) * gain
-        v_right = max_speed * (1 + diff_angle * 2) * gain
+        v_left = self.max_speed * (1 - diff_angle * 2) * gain
+        v_right = self.max_speed * (1 + diff_angle * 2) * gain
 
         return [v_left, v_right]
 

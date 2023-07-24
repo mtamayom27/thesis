@@ -401,7 +401,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.construct_graph()
 
     def update_map(self, node_p, node_q, observation_p, observation_q, success):
-        success = self.reach_estimator.is_same(node_q, observation_q)
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
@@ -441,6 +440,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['weight'] = weight
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+        return
 
     def locate_node(self, pc: PlaceCell):
         existing_node, located_pc = super().locate_node(pc)

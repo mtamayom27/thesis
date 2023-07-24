@@ -101,7 +101,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
         device          -- device used for calculations (default cpu)
         debug           -- is in debug mode
         """
-        super().__init__(threshold_same=0.25, threshold_reachable=0.75, device=device, debug=debug)
+        super().__init__(threshold_same=0.4, threshold_reachable=0.75, device=device, debug=debug)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return distance between start and goal as an estimation of reachability"""
@@ -319,6 +319,8 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
         super().__init__(threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
         self.env_model = "Savinov_val3"
         self.fov = 120 * np.pi / 180
+        self.distance_threshold = 0.7
+        self.map_layout = MapLayout(self.env_model)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Reachability Score based on the view overlap of start and goal in the environment """
@@ -326,11 +328,9 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
         start_pos = start.env_coordinates
         goal_pos = goal.env_coordinates
 
-        map_layout = MapLayout(self.env_model)
-
         heading1 = np.degrees(np.arctan2(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]))
 
-        overlap_ratios = map_layout.view_overlap(start_pos, heading1, self.fov,
+        overlap_ratios = self.map_layout.view_overlap(start_pos, heading1, self.fov,
                                                  goal_pos, heading1, self.fov, mode='plane')
 
         return (overlap_ratios[0] + overlap_ratios[1]) / 2

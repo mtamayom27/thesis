@@ -159,28 +159,20 @@ class TrajectoryFollower(object):
         # set current grid cell spikings of the agent
         self.gc_network.set_as_current_state(path[0].gc_connections)
 
-        # the local controller navigates from subgoal to subgoal
-        # if `$stop_threshold` consecutive subgoals are missed the navigation is aborted
-        failed_attempts = 0
-        stop_threshold = 10
         last_pc = path[0]
         i = 0
         while True:
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
-                                         exploration_phase=False, pc_network=self.pc_network, pod=self.pod,
-                                         cognitive_map=self.cognitive_map, plot_it=False, step_limit=1000)
+                                         obstacles=True, exploration_phase=False, pc_network=self.pc_network,
+                                         pod=self.pod, cognitive_map=self.cognitive_map, plot_it=True, step_limit=1000)
             self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1)
             if plotting:
                 graph_states.append(nx.DiGraph(self.cognitive_map.node_network))
                 positions.append(pc)
 
             if stop == -1:
-                failed_attempts += 1
-                if failed_attempts == stop_threshold:
-                    break
-
                 _, last_pc = self.cognitive_map.locate_node(pc)
 
                 new_path = self.cognitive_map.find_path(last_pc, goal)
@@ -193,11 +185,8 @@ class TrajectoryFollower(object):
             else:
                 failed_attempts = 0
                 i += 1
-                existing_node, last_pc = self.cognitive_map.locate_node(pc)
                 if i == len(path) - 1:
                     break
-                if existing_node:
-                    self.plot_cognitive_map_path([last_pc] + path[i:], env)
 
         # plot the agent's trajectory in the environment
         if plotting:
@@ -250,7 +239,7 @@ if __name__ == "__main__":
 
     # setup
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, connection)
-    tj.navigation(start=11, goal=57)
+    tj.navigation(start=176, goal=180)
     # tj.navigation(start=111, goal=119)
     # tj.navigation(start=67, goal=84)
     # example navigation trials
