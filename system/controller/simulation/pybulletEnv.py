@@ -169,7 +169,7 @@ class PybulletEnvironment:
         self.num_ray_dir = 21  # number of direction to check for obstacles
         self.tactile_cone = 120  # cone for beams centered on heading direction
         self.ray_length = 1  # length of the beams
-        self.mapping = None  # see local_navigation experiments
+        self.mapping = 1.5  # see local_navigation experiments
         self.combine = 1.5
 
         # threshold for goal_vector length that signals arrival at goal
@@ -259,24 +259,26 @@ class PybulletEnvironment:
         keys = p.getKeyboardEvents()
         for k, v in keys.items():
 
-            if (k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_TRIGGERED)):
+            if k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_TRIGGERED):
                 self.turn = -0.5
-            if (k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_RELEASED)):
+            if k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_RELEASED):
                 self.turn = 0
-            if (k == p.B3G_LEFT_ARROW and (v & p.KEY_WAS_TRIGGERED)):
+            if k == p.B3G_LEFT_ARROW and (v & p.KEY_WAS_TRIGGERED):
                 self.turn = 0.5
-            if (k == p.B3G_LEFT_ARROW and (v & p.KEY_WAS_RELEASED)):
+            if k == p.B3G_LEFT_ARROW and (v & p.KEY_WAS_RELEASED):
                 self.turn = 0
 
-            if (k == p.B3G_UP_ARROW and (v & p.KEY_WAS_TRIGGERED)):
+            if k == p.B3G_UP_ARROW and (v & p.KEY_WAS_TRIGGERED):
                 self.forward = 1
-            if (k == p.B3G_UP_ARROW and (v & p.KEY_WAS_RELEASED)):
+            if k == p.B3G_UP_ARROW and (v & p.KEY_WAS_RELEASED):
                 self.forward = 0
-            if (k == p.B3G_DOWN_ARROW and (v & p.KEY_WAS_TRIGGERED)):
+            if k == p.B3G_DOWN_ARROW and (v & p.KEY_WAS_TRIGGERED):
                 self.forward = -1
-            if (k == p.B3G_DOWN_ARROW and (v & p.KEY_WAS_RELEASED)):
+            if k == p.B3G_DOWN_ARROW and (v & p.KEY_WAS_RELEASED):
                 self.forward = 0
-            if (k == p.B3G_SPACE and (v & p.KEY_WAS_TRIGGERED)):
+            if k == p.B3G_SPACE and (v & p.KEY_WAS_TRIGGERED):
+                self.calculate_obstacle_vector()
+            if k == p.B3G_BACKSPACE and (v & p.KEY_WAS_TRIGGERED):
                 return False
 
         v_left = (self.forward - self.turn) * self.max_speed
@@ -332,12 +334,6 @@ class PybulletEnvironment:
 
         if obstacles:
             obstacle_vector = self.calculate_obstacle_vector()
-
-            if np.linalg.norm(np.array(obstacle_vector)) > 0:
-                obstacle_vector = np.array(obstacle_vector) / (
-                    np.linalg.norm(np.array(obstacle_vector)))  # normalize obstacle_vector to a standard length of 1
-            else:
-                obstacle_vector = np.array([0.0, 0.0])
 
             if np.linalg.norm(np.array(self.goal_vector)) > 0:
                 normed_goal_vector = np.array(self.goal_vector) / np.linalg.norm(
@@ -424,7 +420,8 @@ class PybulletEnvironment:
     def ray_detection_egocentric(self):
         """ returns the egocentric distance to obstacles in numRays directions """
 
-        if self.visualize: p.removeAllUserDebugItems()  # removes raylines
+        if self.visualize:
+            p.removeAllUserDebugItems()  # removes raylines
 
         rayReturn = []
         rayFrom = []
@@ -447,14 +444,12 @@ class PybulletEnvironment:
 
             # 1 pi rotation -> 180 degrees
             sub = euler_angle[2] - 2 * math.pi * i / (numRays - 1) * self.tactile_cone / 360 + math.pi / (
-                        360.0 / self.tactile_cone)
+                    360.0 / self.tactile_cone)
 
             rayTo.append([
-                rayLen * math.cos(sub
-                                  ) +
+                rayLen * math.cos(sub) +
                 rayFromPoint[0],
-                rayLen * math.sin(sub
-                                  ) +
+                rayLen * math.sin(sub) +
                 rayFromPoint[1],
                 rayFromPoint[2]
             ])
@@ -463,12 +458,11 @@ class PybulletEnvironment:
 
         results = p.rayTestBatch(rayFrom, rayTo, numThreads=0)  # get intersections with obstacles
         for i in range(numRays):
-            hitObjectUid = results[i][0]
+            hit_object_uid = results[i][0]
 
-            if (hitObjectUid < 0):
-                hitPosition = [0, 0, 0]
+            if hit_object_uid < 0:
                 self.add_debug_line(rayFrom[i], rayTo[i], rayMissColor)
-                if (i == 0):
+                if i == 0:
                     self.add_debug_line(rayFrom[i], rayTo[i], (0, 0, 0))
                 self.add_debug_line(rayFrom[i], rayTo[i], rayMissColor)
                 rayReturn.append(-1)
@@ -484,27 +478,54 @@ class PybulletEnvironment:
     ''' Calculates the obstacle_vector from the ray distances'''
 
     def calculate_obstacle_vector(self):
-
         rays, angles = self.ray_detection_egocentric()
 
-        '''different choices for mapping ray distance to motor inhibition'''
-        if self.mapping:
-            m = lambda d: self.mapping / (d + 0.0001)
-        else:
-            m = lambda d: 1.5 / (d + 0.0001)
+        # Step 1: Calculate the points where the rays hit the obstacles
+        hit_points = []
+        for angle, ray in zip(angles, rays):
+            if ray != -1:
+                x = ray * np.cos(angle)  # Calculate x-coordinate of the hit point
+                y = ray * np.sin(angle)  # Calculate y-coordinate of the hit point
+                hit_points.append([x, y])
 
-        rays = list(map(lambda d: 0 if d < 0 else m(d), rays))
+        try:
+            # Calculate the slope (m) of the line using linear regression
+            # Step 2: Calculate a straight line using linear regression that fits the best to these points
+            hit_points = np.array(hit_points)
+            x_values = hit_points[:, 0]
+            y_values = hit_points[:, 1]
 
-        obstacle_vector = np.array([0.0, 0.0])
-        seperate = []
+            # For cases where x_values are constant (obstacle parallel to y-axis),
+            # we can directly calculate the slope and intercept of the line.
+            if np.all(abs(x_values - x_values[0]) < 0.001):
+                direction_vector = np.array([0.0, 1.0])
+            else:
+                # Calculate the slope and intercept using the Least Squares Regression.
+                A = np.vstack([x_values, np.ones(len(x_values))]).T
+                slope, intercept = np.linalg.lstsq(A, y_values, rcond=None)[0]
+                direction_vector = np.array([1.0, slope])
+                direction_vector /= np.linalg.norm(direction_vector)  # Normalize the direction vector
+        except (IndexError, ValueError, np.linalg.LinAlgError):
+            return np.array([0.0, 0.0])
+
+        last_angle = -1
+        last_distance = -1
         for i, r in enumerate(rays):
-            seperate.append(np.array([
-                np.cos(angles[i]),
-                np.sin(angles[i])]) * r)
+            if r > 0:
+                last_distance = r
+                last_angle = angles[i]
 
-        obstacle_vector = sum(seperate)
+        if last_distance > 0:
+            self_point = p.getLinkState(self.carID, 0)[0]
+            start_point = self_point + np.array(
+                [np.cos(last_angle), np.sin(last_angle), self_point[-1]]) * last_distance
+            end_point = start_point - np.array([direction_vector[0], direction_vector[1], 0])
+            self.add_debug_line(start_point, end_point, (0, 0, 0))
+            print(rays)
+            print(angles)
+            print(direction_vector)
 
-        return np.array(obstacle_vector)
+        return direction_vector
 
     def calculate_goal_vector_analytically(self):
         """ Uses a precise goal vector. """
@@ -602,7 +623,7 @@ class PybulletEnvironment:
 
 
 if __name__ == "__main__":
-    print("Test keyboard movement an plotting in different environments. Press SPACE to exit.")
+    print("Test keyboard movement an plotting in different environments. Press BACKSPACE to exit.")
     """
     Available environments:
     - plane: just a plane
@@ -610,10 +631,10 @@ if __name__ == "__main__":
     - Savinov_val2
     - Savinov_val3
     """
-    env_model = "plane"
-    env_model = "obstacle_map_1"
-    env_model = "Savinov_test7"
-    env_model = "Savinov_val2"
+    # env_model = "plane"
+    # env_model = "obstacle_map_1"
+    # env_model = "Savinov_test7"
+    # env_model = "Savinov_val2"
     env_model = "Savinov_val3"
 
     dt = 1e-2
