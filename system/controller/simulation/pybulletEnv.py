@@ -50,6 +50,30 @@ import system.plotting.plotResults as plot
 from system.controller.local_controller.local_navigation import compute_navigation_goal_vector
 
 
+def longest_consecutive_subsegment(values):
+    longest_start = -1
+    longest_end = -1
+    current_start = -1
+    current_length = 0
+    max_length = 0
+
+    for i, value in enumerate(values):
+        if value > 0:
+            if current_start == -1:
+                current_start = i
+            current_length += 1
+
+            if current_length > max_length:
+                max_length = current_length
+                longest_start = current_start
+                longest_end = i
+        else:
+            current_start = -1
+            current_length = 0
+
+    return longest_start, longest_end
+
+
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
@@ -423,7 +447,7 @@ class PybulletEnvironment:
         if self.visualize:
             p.removeAllUserDebugItems()  # removes raylines
 
-        rayReturn = []
+        ray_return = []
         rayFrom = []
         rayTo = []
         numRays = self.num_ray_dir  # number of directions to check (e.g. 16,51,71)
@@ -465,25 +489,25 @@ class PybulletEnvironment:
                 if i == 0:
                     self.add_debug_line(rayFrom[i], rayTo[i], (0, 0, 0))
                 self.add_debug_line(rayFrom[i], rayTo[i], rayMissColor)
-                rayReturn.append(-1)
+                ray_return.append(-1)
             else:
                 hitPosition = results[i][3]
                 self.add_debug_line(rayFrom[i], hitPosition, rayHitColor)
                 self.add_debug_line(rayFrom[i], rayTo[i], rayHitColor)
-                rayReturn.append(
+                ray_return.append(
                     math.sqrt((hitPosition[0] - rayFrom[i][0]) ** 2 + (hitPosition[1] - rayFrom[i][1]) ** 2))
 
-        return rayReturn, ray_angles
+        return ray_return, ray_angles
 
     ''' Calculates the obstacle_vector from the ray distances'''
 
     def calculate_obstacle_vector(self):
         rays, angles = self.ray_detection_egocentric()
-
+        start_index, end_index = longest_consecutive_subsegment(rays)
         # Step 1: Calculate the points where the rays hit the obstacles
         hit_points = []
-        for angle, ray in zip(angles, rays):
-            if ray != -1:
+        for i, (angle, ray) in enumerate(zip(angles, rays)):
+            if start_index <= i <= end_index:
                 x = ray * np.cos(angle)  # Calculate x-coordinate of the hit point
                 y = ray * np.sin(angle)  # Calculate y-coordinate of the hit point
                 hit_points.append([x, y])
@@ -508,22 +532,12 @@ class PybulletEnvironment:
         except (IndexError, ValueError, np.linalg.LinAlgError):
             return np.array([0.0, 0.0])
 
-        last_angle = -1
-        last_distance = -1
-        for i, r in enumerate(rays):
-            if r > 0:
-                last_distance = r
-                last_angle = angles[i]
-
-        if last_distance > 0:
+        if rays[end_index] > 0:
             self_point = p.getLinkState(self.carID, 0)[0]
             start_point = self_point + np.array(
-                [np.cos(last_angle), np.sin(last_angle), self_point[-1]]) * last_distance
+                [np.cos(angles[end_index]), np.sin(angles[end_index]), self_point[-1]]) * rays[end_index]
             end_point = start_point - np.array([direction_vector[0], direction_vector[1], 0])
             self.add_debug_line(start_point, end_point, (0, 0, 0))
-            print(rays)
-            print(angles)
-            print(direction_vector)
 
         return direction_vector
 
