@@ -74,6 +74,13 @@ def longest_consecutive_subsegment(values):
     return longest_start, longest_end
 
 
+def vectors_in_one_direction(v1, v2) -> bool:
+    dot_product = np.dot(v1, v2)
+
+    # Check if the dot product is non-positive (angle in range -90 to 90 degrees)
+    return dot_product <= 0
+
+
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
@@ -366,7 +373,8 @@ class PybulletEnvironment:
                 normed_goal_vector = np.array([0.0, 0.0])
 
             # combine goal and obstacle vector
-            movement = list(normed_goal_vector * self.combine + obstacle_vector * -1)
+            multiple = 1 if vectors_in_one_direction(normed_goal_vector, obstacle_vector) else -1
+            movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
         else:
             movement = self.goal_vector
         self.compute_movement(movement)
@@ -504,33 +512,42 @@ class PybulletEnvironment:
     def calculate_obstacle_vector(self):
         rays, angles = self.ray_detection_egocentric()
         start_index, end_index = longest_consecutive_subsegment(rays)
-        # Step 1: Calculate the points where the rays hit the obstacles
-        hit_points = []
-        for i, (angle, ray) in enumerate(zip(angles, rays)):
-            if start_index <= i <= end_index:
-                x = ray * np.cos(angle)  # Calculate x-coordinate of the hit point
-                y = ray * np.sin(angle)  # Calculate y-coordinate of the hit point
-                hit_points.append([x, y])
 
-        try:
-            # Calculate the slope (m) of the line using linear regression
-            # Step 2: Calculate a straight line using linear regression that fits the best to these points
-            hit_points = np.array(hit_points)
-            x_values = hit_points[:, 0]
-            y_values = hit_points[:, 1]
-
-            # For cases where x_values are constant (obstacle parallel to y-axis),
-            # we can directly calculate the slope and intercept of the line.
-            if np.all(abs(x_values - x_values[0]) < 0.001):
-                direction_vector = np.array([0.0, 1.0])
-            else:
-                # Calculate the slope and intercept using the Least Squares Regression.
-                A = np.vstack([x_values, np.ones(len(x_values))]).T
-                slope, intercept = np.linalg.lstsq(A, y_values, rcond=None)[0]
-                direction_vector = np.array([1.0, slope])
-                direction_vector /= np.linalg.norm(direction_vector)  # Normalize the direction vector
-        except (IndexError, ValueError, np.linalg.LinAlgError):
+        if end_index < 0:
             return np.array([0.0, 0.0])
+
+        if end_index - start_index + 1 < 5:
+            middle_index = (end_index + start_index) // 2
+            angle = angles[middle_index]
+            direction_vector = np.array([-np.sin(angle), np.cos(angle)])
+        else:
+            # Step 1: Calculate the points where the rays hit the obstacles
+            hit_points = []
+            for i, (angle, ray) in enumerate(zip(angles, rays)):
+                if start_index <= i <= end_index:
+                    x = ray * np.cos(angle)  # Calculate x-coordinate of the hit point
+                    y = ray * np.sin(angle)  # Calculate y-coordinate of the hit point
+                    hit_points.append([x, y])
+
+            try:
+                # Calculate the slope (m) of the line using linear regression
+                # Step 2: Calculate a straight line using linear regression that fits the best to these points
+                hit_points = np.array(hit_points)
+                x_values = hit_points[:, 0]
+                y_values = hit_points[:, 1]
+
+                # For cases where x_values are constant (obstacle parallel to y-axis),
+                # we can directly calculate the slope and intercept of the line.
+                if np.all(abs(x_values - x_values[0]) < 0.001):
+                    direction_vector = np.array([0.0, 1.0])
+                else:
+                    # Calculate the slope and intercept using the Least Squares Regression.
+                    A = np.vstack([x_values, np.ones(len(x_values))]).T
+                    slope, intercept = np.linalg.lstsq(A, y_values, rcond=None)[0]
+                    direction_vector = np.array([1.0, slope])
+                    direction_vector /= np.linalg.norm(direction_vector)  # Normalize the direction vector
+            except (IndexError, ValueError, np.linalg.LinAlgError):
+                return np.array([0.0, 0.0])
 
         if rays[end_index] > 0:
             self_point = p.getLinkState(self.carID, 0)[0]

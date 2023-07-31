@@ -183,7 +183,7 @@ class TrajectoryFollower(object):
                 path[i:] = new_path
                 self.plot_cognitive_map_path(path, env)
             else:
-                failed_attempts = 0
+                last_pc = pc
                 i += 1
                 if i == len(path) - 1:
                     break
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     # setup
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, connection)
-    tj.navigation(start=176, goal=180)
+    tj.navigation(start=37, goal=81)
     # tj.navigation(start=111, goal=119)
     # tj.navigation(start=67, goal=84)
     # example navigation trials
