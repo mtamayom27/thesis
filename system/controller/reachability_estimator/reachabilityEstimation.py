@@ -40,9 +40,15 @@ def make_nets(specs, device):
 def init_reachability_estimator(type='distance', **kwargs):
     if type == 'distance':
         return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
+    elif type == 'old_neural_network':
+        return OldNetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
+                                               kwargs.get('weights_file', None))
     elif type == 'neural_network':
-        return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
-                                            kwargs.get('weights_file', None))
+        from system.controller.reachability_estimator.network_re.RGBDNetworkReachabilityEstimator import \
+            RGBDNetworkReachabilityEstimator
+
+        return RGBDNetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
+                                                kwargs.get('weights_file', None))
     elif type == 'simulation':
         return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
                                                kwargs.get('env_model', None))
@@ -111,7 +117,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
         return reachability_factor < threshold
 
 
-class NetworkReachabilityEstimator(ReachabilityEstimator):
+class OldNetworkReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False, weights_file=None):
         """ Creates a reachability estimator that judges reachability
             between two locations based on its type

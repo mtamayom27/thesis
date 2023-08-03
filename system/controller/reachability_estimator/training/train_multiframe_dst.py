@@ -70,10 +70,10 @@ def _save_model(nets, net_opts, epoch, global_args, model_file):
 def test_dst(dataset):
     """ Test model on dataset. Logs accuracy, precision, recall and f1score. """
 
-    from system.controller.reachability_estimator.reachabilityEstimation import NetworkReachabilityEstimator
+    from system.controller.reachability_estimator.reachabilityEstimation import OldNetworkReachabilityEstimator
     filename = "trained_model_pair_conv.30"
     filepath = os.path.join(os.path.join(os.path.dirname(__file__), "../data/models"), filename)
-    reach_estimator = NetworkReachabilityEstimator(weights_file=filepath)
+    reach_estimator = OldNetworkReachabilityEstimator(weights_file=filepath)
 
     sampler = RandomSampler(dataset, True, len(dataset))
 
@@ -487,7 +487,7 @@ if __name__ == '__main__':
         filepath = os.path.join(directory, hd5file)
         filepath = os.path.realpath(filepath)
 
-        dataset = H5Dataset(filepath, externalLink=True)
+        dataset = H5Dataset(filepath, external_link=True)
 
         train_multiframedst(
             nets={
