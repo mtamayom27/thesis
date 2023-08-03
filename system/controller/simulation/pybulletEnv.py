@@ -374,7 +374,10 @@ class PybulletEnvironment:
 
             # combine goal and obstacle vector
             multiple = 1 if vectors_in_one_direction(normed_goal_vector, obstacle_vector) else -1
-            movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
+            if np.linalg.norm(obstacle_vector) > 5:
+                movement = obstacle_vector
+            else:
+                movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
         else:
             movement = self.goal_vector
         self.compute_movement(movement)
@@ -556,6 +559,7 @@ class PybulletEnvironment:
             end_point = start_point - np.array([direction_vector[0], direction_vector[1], 0])
             self.add_debug_line(start_point, end_point, (0, 0, 0))
 
+        direction_vector = direction_vector * 6 / min(rays[start_index:end_index + 1])
         return direction_vector
 
     def calculate_goal_vector_analytically(self):
