@@ -111,6 +111,7 @@ class ReachabilityDataset(data.Dataset):
 
         self.map_names = maps
         map_name_set = set(maps)
+        self.layout = MapLayout(self.map_names[0])
 
         traj_ids_per_map = {_: [] for _ in self.map_names}
         for dset_idx, traj_id in self.traj_ids:
@@ -193,7 +194,7 @@ class ReachabilityDataset(data.Dataset):
 
     def _draw_sample_same_traj(self, idx):
         """ Draw a source and goal sample from the same trajectory.
-            Their distance willl be between distance_min and distance_max.
+            Their distance will be between distance_min and distance_max.
             They will be seperated by timesteps in range of range_min to range_max.
         
         returns:
@@ -205,29 +206,27 @@ class ReachabilityDataset(data.Dataset):
 
         while True:
             # Get a good pair of samples
-            dataset_idx, traj_id, src_idx = self._locate_sample(idx)
+            src_dataset_idx, src_traj_id, src_idx = self._locate_sample(idx)
 
-            traj = self.fds[dataset_idx][traj_id]
-            map_name = self.fds[dataset_idx].attrs['map_type']
+            src_traj = self.fds[src_dataset_idx][src_traj_id] # todo self.map_names[0] like in layout?
+            map_name = self.fds[src_dataset_idx].attrs['map_type']
 
-            src_sample = self._jitter(traj[src_idx], None)
+            src_sample = self._jitter(src_traj[src_idx], None)
             src_pos = src_sample[0]
 
             dst_idx = src_idx + inc
             flag = False
-            while 0 <= dst_idx < len(traj):
-                dst_sample = traj[dst_idx]
+            while 0 <= dst_idx < len(src_traj):
+                dst_sample = src_traj[dst_idx]
                 dst_pos = dst_sample[0]
                 x, y = dst_pos - src_pos
                 # If the samples are far enough away from each other both spatially and timerange wise
                 # a valid sample has been found.
                 if dst_idx - src_idx > timerange and x ** 2 + y ** 2 > distance ** 2:
                     # return path_length
-                    # TODO Johanna: initializing the map layout every time is inefficient
-                    layout = MapLayout(map_name)
                     goal_pos = list(dst_pos)
                     src_pos = list(src_pos)
-                    waypoints = layout.find_path(src_pos, goal_pos)
+                    waypoints = self.layout.find_path(src_pos, goal_pos)
                     # no path found between source and goal -> skip this sample
                     if not waypoints:
                         print_debug("No path found.")
@@ -238,7 +237,7 @@ class ReachabilityDataset(data.Dataset):
 
                 dst_idx += inc
 
-            if flag and 0 <= dst_idx < len(traj):
+            if flag and 0 <= dst_idx < len(src_traj):
                 # Found valid dst_sample
                 break
 
@@ -247,7 +246,7 @@ class ReachabilityDataset(data.Dataset):
             #                   This should fix it but could not be tested extensively.
             idx = (idx + self.rng.randint(1000)) % len(self)
 
-        dst_samples = self._make_sample_seq(traj, dst_idx)
+        dst_samples = self._make_sample_seq(src_traj, dst_idx)
 
         return map_name, src_sample, dst_samples, path_l
 
@@ -273,10 +272,9 @@ class ReachabilityDataset(data.Dataset):
             dst_samples = self._make_sample_seq(dst_traj, dst_idx)
 
             # return path_length
-            layout = MapLayout(map_name)
             goal_pos = list(dst_samples[self.n_frame - 1][0])
             src_pos = list(src_sample[0])
-            waypoints = layout.find_path(src_pos, goal_pos)
+            waypoints = self.layout.find_path(src_pos, goal_pos)
             # no path found between source and goal -> skip this sample
             if not waypoints:
                 print_debug("No path found.")
@@ -342,14 +340,9 @@ class ReachabilityDataset(data.Dataset):
         src_sample  --
         dst_sample  -- sample format
                         dtype = np.dtype([
-                        ('start_observation', (np.int32,16384)),
-                        ('goal_observation', (np.int32,16384*n_frames)),
-                        ('reached', np.float32), 
-                        ('start', (np.float32,2)),
-                        ('goal', (np.float32,2)),
-                        ('decoded_goal_vector', (np.float32,2)),
-                        ('start_observation_after_turn', (np.int32,16384)),
-                        ('distance',(np.float32,2))])
+                            ('xy_coordinates', (np.float32, 2)),
+                            ('orientation', np.float32),
+                            ('grid_cell_spiking', (np.float32, 9600))])
         same_traj   -- if True: sample taken from same trajectory
         
         returns:
@@ -357,7 +350,7 @@ class ReachabilityDataset(data.Dataset):
         final_distance  -- actual distance between agent and goal
         final_coordinates
         final_orientations -- used to create goal image sequence if necessary
-        first_goal_vector  -- first goal vector the agent decoded at its starting position
+        goal_vector  -- first goal vector the agent decoded at its starting position
         sample_after_turn  -- position and orientation after turning towards the goal
         """
 
@@ -396,10 +389,10 @@ class ReachabilityDataset(data.Dataset):
 
         # Attempt vector navigation from source to goal.
         over, data = vector_navigation(env, goal_pos, gc_network, target_spiking,
-                                       model="combo", step_limit=step_limit,
+                                       model="analytical", step_limit=step_limit,
                                        plot_it=False, collect_data_reachable=True)
 
-        sample_after_turn, first_goal_vector = data
+        sample_after_turn, goal_vector = data
         if over == -1:
             # Agent got stuck
             reached = 0.0
@@ -436,7 +429,7 @@ class ReachabilityDataset(data.Dataset):
         final_orientations = env.orientation_angle[::self.frame_interval][-self.n_frame:]
         final_distance = str(np.linalg.norm(dst_sample[0] - env.xy_coordinates[-1]))
 
-        return reached, final_distance, final_coordinates, final_orientations, first_goal_vector, sample_after_turn
+        return reached, final_distance, final_coordinates, final_orientations, goal_vector, sample_after_turn
 
     def __getitem__(self, idx):
         ''' Loads or creates a sample. Sample contains ... 
@@ -451,8 +444,6 @@ class ReachabilityDataset(data.Dataset):
         src img after turn
         distance between goal and agent'''
         self._init_once(idx) #todo remove from here
-
-        #todo add direction angle
 
         # choose with probability p from same/different trajectory
         p = self.rng.uniform(0.0, 1.0)
@@ -493,8 +484,7 @@ class ReachabilityDataset(data.Dataset):
 
         # image transformation
         dst_imgs = [np.array(i[2]) for i in dst_imgs]
-
-        return src_img, dst_imgs, r, [src_sample[0], dst_sample[0]], first_gv, src_img_after_turn, dist
+        return src_img, dst_imgs, r, [src_sample[0], dst_sample[0]], [src_sample[1], dst_sample[1]], first_gv, src_img_after_turn, dist
 
 
 def create_and_save_reachability_samples(filename, nr_samples, traj_file):
@@ -530,19 +520,21 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
     print_debug("env_model: ", env_model)
     f.attrs.create('map_type', env_model)
 
-    #todo add direction angle
     dtype = np.dtype([
         ('start_observation', (np.int32, 16384)),
         ('goal_observation', (np.int32, 16384 * n_frames)),
         ('reached', np.float32),
-        ('start', (np.float32, 2)),
-        ('goal', (np.float32, 2)),
-        ('decoded_goal_vector', (np.float32, 2)),
+        ('start', (np.float32, 2)),  # x, y
+        ('goal', (np.float32, 2)),  # x, y
+        ('start_orientation', np.float32),  # theta
+        ('goal_orientation', np.float32),  # theta
+        ('decoded_goal_vector', (np.float32, 2)),  # dx, dy
+        ('rotation', np.float32),  # dtheta
         ('start_observation_after_turn', (np.int32, 16384)),
         ('distance', (np.float32, 2))
     ])
 
-    seed = 555555
+    seed = 555556
     rng_sampleid = np.random.RandomState(seed)
 
     for i in range(nr_samples):
@@ -561,13 +553,23 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
         item = rd.__getitem__(random_index)
         if not item:
             raise ValueError("no item found")
-        src_img, dst_imgs, r, s, first_gv, img_after_turn, dist = item
+        src_img, dst_imgs, r, s, orientations, first_gv, img_after_turn, dist = item
 
         only_dst_imgs = np.array([x.flatten() for x in dst_imgs])
 
-        #todo add direction angle
         sample = (
-        src_img[2].flatten(), only_dst_imgs.flatten(), r, s[0], s[1], first_gv, img_after_turn[2].flatten(), dist)
+            src_img[2].flatten(),
+            only_dst_imgs.flatten(),
+            r,
+            s[0],
+            s[1],
+            orientations[0],
+            orientations[1],
+            first_gv,
+            orientations[1] - orientations[0],
+            img_after_turn[2].flatten(),
+            dist
+        )
 
         dset = f.create_dataset(
             dset_name,
