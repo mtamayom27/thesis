@@ -534,7 +534,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
         ('distance', (np.float32, 2))
     ])
 
-    seed = 555556
+    seed = 555557
     rng_sampleid = np.random.RandomState(seed)
 
     for i in range(nr_samples):

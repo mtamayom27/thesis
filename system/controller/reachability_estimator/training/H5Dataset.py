@@ -22,7 +22,7 @@ class H5Dataset(torch.utils.data.Dataset):
     arguments:
         path            -- path to the hd5 file
         externalLink    -- true if the dataset is a combination of various datasets using external links (default False)
-    
+
     returns:
         src_img         -- image from agent's pov at start
         dst_img         -- image from agent's pov at goal
@@ -34,39 +34,40 @@ class H5Dataset(torch.utils.data.Dataset):
         self.file_path = path
         self.dataset = None
         self.externalLink = external_link
-        with h5py.File(self.file_path, 'r') as file:
-            if external_link:
-                self.dataset_len = 0
-                self.cumsum = [0]
-                self.keys = []
-                for k in list(file.keys()):
-                    self.dataset_len += len(file[k].keys())
-                    self.cumsum.append(len(file[k].keys()) + self.cumsum[-1])
-                    self.keys += list(file[k].keys())
-            else:
-                self.dataset_len = len(list(file.keys()))
-                self.keys = list(file.keys())
+        self.dataset = h5py.File(self.file_path, 'r')
+
+        if external_link:
+            self.dataset_len = 0
+            self.cumsum = [0]
+            self.keys = []
+            for k in list(self.dataset.keys()):
+                self.dataset_len += len(self.dataset[k])
+                self.cumsum.append(len(self.dataset[k]) + self.cumsum[-1])
+                self.keys += list(self.dataset[k][:])
+        else:
+            self.dataset_len = len(list(self.dataset))
+            self.keys = list(self.dataset)
+
+    def sample(self, index):
+        if self.externalLink:
+            return self.dataset[str(self._get_link_index(index))][self.keys[index]][()]
+        else:
+            return self.dataset[self.keys[index]][()]
 
     def __getitem__(self, index):
-        if self.dataset is None:
-            self.dataset = h5py.File(self.file_path, 'r')
+        start_observation, goal_observation, \
+            reachability, start_position, goal_position, \
+            start_orientation, goal_orientation, \
+            _, _, _, _ = self.sample(index)[0]
 
-        if self.externalLink:
-            sample = self.dataset[str(self._get_link_index(index))][self.keys[index]][()]
-        else:
-            sample = self.dataset[self.keys[index]][()]
-
-        d = sample[0]
-        if len(d[1]) != 163840:
+        if len(goal_observation) != 163840:
             raise ValueError("invlaid sample, should be removed,index :" + str(index))
 
         # reshaping the images
-        src_img, dst_imgs = src_dst_prep(d[0], d[1], 10)
-        reachability = d[2]
+        src_img, dst_imgs = src_dst_prep(start_observation, goal_observation, 10)
 
-        #todo add direction
-        return np.array(src_img), np.array(dst_imgs), torch.tensor(reachability), torch.tensor(d[5]), torch.tensor(
-            d[3]), torch.tensor(d[4])
+        return np.array(src_img), np.array(dst_imgs), torch.tensor(reachability), \
+            torch.tensor(np.append(goal_position, goal_orientation) - np.append(start_position, start_orientation))
 
     def __len__(self):
         return self.dataset_len
@@ -130,12 +131,12 @@ class H5Dataset(torch.utils.data.Dataset):
 
 def create_balanced_datasets(new_file, filename, filepath, length):
     """ Combine two hd5 files into one. Keys need to be different
-    
+
     arguments:
-    
+
     new_file    -- new filename
     filenames   -- files to be combined
-    filepath    -- path to storage folder 
+    filepath    -- path to storage folder
     """
     new_f = h5py.File(new_file, 'w')
 
@@ -145,8 +146,10 @@ def create_balanced_datasets(new_file, filename, filepath, length):
         ('reached', np.float32),
         ('start', (np.float32, 2)),
         ('goal', (np.float32, 2)),
-        #todo add direction
+        ('start_orientation', np.float32),  # theta
+        ('goal_orientation', np.float32),  # theta
         ('decoded_goal_vector', (np.float32, 2)),
+        ('rotation', np.float32),  # dtheta
         ('start_observation_after_turn', (np.int32, 16384)),
         ('distance', (np.float32, 2))
     ])

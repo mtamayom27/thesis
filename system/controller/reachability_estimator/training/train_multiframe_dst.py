@@ -11,8 +11,6 @@
 import torch
 import time
 import tabulate
-import numpy as np
-from torchmetrics.functional import precision_recall
 from torchmetrics import Accuracy, F1Score
 from torchmetrics.classification import BinaryPrecision, BinaryRecall, BinaryAccuracy, BinaryF1Score
 from torch.utils.data import DataLoader, RandomSampler
@@ -93,7 +91,8 @@ def test_dst(dataset):
     precision = BinaryPrecision()
     recall = BinaryRecall()
     f1 = BinaryF1Score()
-    for idx, (batch_src_imgs, batch_dst_imgs, batch_reachability, batch_vector, _, _) in enumerate(loader):
+    for idx, item in enumerate(loader):
+        batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
         src_img = batch_src_imgs.to(device="cpu", non_blocking=True)
         dst_imgs = batch_dst_imgs.to(device="cpu", non_blocking=True)
         r = batch_reachability.to(device="cpu", non_blocking=True)
@@ -135,7 +134,8 @@ def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoc
         precision = BinaryPrecision()
         recall = BinaryRecall()
         f1 = BinaryF1Score()
-        for idx, (batch_src_imgs, batch_dst_imgs, batch_reachability, batch_vector, _, _) in enumerate(loader):
+        for idx, item in enumerate(loader):
+            batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
             # Get predictions
             src_img = batch_src_imgs.to(device=train_device, non_blocking=True)
             dst_imgs = batch_dst_imgs.to(device=train_device, non_blocking=True)
@@ -186,11 +186,11 @@ def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoc
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 3))
 
                 # Get prediction
                 # add the decoded goal vector
-                pred_reach_logits = nets['reachability_regressor'](torch.cat((batch_vector, conv_feature), 1))
+                pred_reach_logits = nets['reachability_regressor'](torch.cat((batch_transformation, conv_feature), 1))
                 # Log accuracy
                 pred_reach = torch.sigmoid(pred_reach_logits).squeeze(1)
 
@@ -295,8 +295,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
         last_log_time = time.time()
 
-        for idx, (batch_src_imgs, batch_dst_imgs, batch_reachability, batch_vector, _, _) in enumerate(loader):
-
+        for idx, item in enumerate(loader):
+            batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
             # Zeros optimizer gradient
             for _, opt in net_opts.items():
                 opt.zero_grad()
@@ -347,12 +347,10 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 3))
 
                 # Get prediction
-                pred_reach_logits = nets['reachability_regressor'](torch.cat((batch_vector, conv_feature), 1))
-
-
+                pred_reach_logits = nets['reachability_regressor'](torch.cat((batch_transformation, conv_feature), 1))
 
             else:
                 print("This variant does not exist")
@@ -430,7 +428,7 @@ if __name__ == '__main__':
         'max_epochs': 30,
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
-        'n_dataset_worker': 24,
+        'n_dataset_worker': 0,
         'n_frame': 10,
         'log_interval': 20,
         'save_interval': 5,
@@ -464,11 +462,11 @@ if __name__ == '__main__':
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
 
-    testing = True
+    testing = False
 
     if testing:
         # Testing
-        hd5file = "reachability_dataset_testset.hd5"
+        hd5file = "test10.hd5"
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")
         filepath = os.path.join(directory, hd5file)
@@ -480,14 +478,14 @@ if __name__ == '__main__':
 
     else:
         # Training
-        hd5file = "reachability_train.hd5"
+        hd5file = "test10.hd5"
 
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")
         filepath = os.path.join(directory, hd5file)
         filepath = os.path.realpath(filepath)
 
-        dataset = H5Dataset(filepath, external_link=True)
+        dataset = H5Dataset(filepath, external_link=False)
 
         train_multiframedst(
             nets={
