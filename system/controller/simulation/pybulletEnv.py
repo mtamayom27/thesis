@@ -50,28 +50,19 @@ import system.plotting.plotResults as plot
 from system.controller.local_controller.local_navigation import compute_navigation_goal_vector
 
 
-def longest_consecutive_subsegment(values):
-    longest_start = -1
-    longest_end = -1
-    current_start = -1
-    current_length = 0
-    max_length = 0
-
-    for i, value in enumerate(values):
-        if value > 0:
-            if current_start == -1:
-                current_start = i
-            current_length += 1
-
-            if current_length > max_length:
-                max_length = current_length
-                longest_start = current_start
-                longest_end = i
-        else:
-            current_start = -1
-            current_length = 0
-
-    return longest_start, longest_end
+def closest_subsegment(values):
+    values = np.array(values)
+    if not np.any(values >= 0):
+        return -1, -1
+    minimal_positive = np.min(values[np.where(values >= 0)])
+    index = np.where(values == minimal_positive)[0][0]
+    start_index = index
+    while start_index > 0 and values[start_index - 1] >= 0:
+        start_index -= 1
+    end_index = index
+    while end_index < len(values) - 1 and values[end_index + 1] >= 0:
+        end_index += 1
+    return start_index, end_index
 
 
 def vectors_in_one_direction(v1, v2) -> bool:
@@ -514,7 +505,7 @@ class PybulletEnvironment:
 
     def calculate_obstacle_vector(self):
         rays, angles = self.ray_detection_egocentric()
-        start_index, end_index = longest_consecutive_subsegment(rays)
+        start_index, end_index = closest_subsegment(rays)
 
         if end_index < 0:
             return np.array([0.0, 0.0])

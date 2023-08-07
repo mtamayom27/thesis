@@ -204,7 +204,8 @@ def generate_multiple_trajectories(out_hd5_obj, num_traj, trajectory_length, cam
     seed = 123456
     rng_trajid = np.random.RandomState(seed)
 
-    for i in range(num_traj):
+    i = 0
+    while i < num_traj:
         traj_id = rng_trajid.randint(0xfffffff)
         dset_name = '/%08x' % traj_id
 
@@ -227,6 +228,7 @@ def generate_multiple_trajectories(out_hd5_obj, num_traj, trajectory_length, cam
             maxshape=(None,), dtype=dtype)
 
         out_hd5_obj.flush()
+        i += 1
 
         print("--- %s seconds for one trajectory ---" % (time.time() - start_time))
 

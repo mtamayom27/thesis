@@ -158,7 +158,7 @@ class TrajectoryFollower(object):
 
         # set current grid cell spikings of the agent
         self.gc_network.set_as_current_state(path[0].gc_connections)
-
+        original_path = list(path)
         last_pc = path[0]
         i = 0
         while True:
@@ -190,7 +190,7 @@ class TrajectoryFollower(object):
 
         # plot the agent's trajectory in the environment
         if plotting:
-            plot.plotTrajectoryInEnvironment(env, cognitive_map=self.cognitive_map, path=path)
+            plot.plotTrajectoryInEnvironment(env, cognitive_map=self.cognitive_map, path=original_path)
             fig, ax = plt.subplots()
 
             def update(frame):
@@ -239,7 +239,8 @@ if __name__ == "__main__":
 
     # setup
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, connection)
-    tj.navigation(start=37, goal=81)
+    # tj.navigation(start=97, goal=14)
+    # tj.navigation(start=87, goal=100)
     # tj.navigation(start=111, goal=119)
     # tj.navigation(start=67, goal=84)
     # example navigation trials
@@ -260,4 +261,4 @@ if __name__ == "__main__":
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
 
-    # tj.navigation()
+    tj.navigation()

@@ -110,21 +110,21 @@ class Map(object):
             self.path_map = (path_map > 0).astype(np.uint8) * 255
 
         # Shrink the path map (i.e., dilate the occupied area)
-        path_map_dilated = self.dilate(self.path_map, path_map_dilation)
+        self.path_map_dilated = self.dilate(self.path_map, path_map_dilation)
 
-        self.reachable_area = 255 - self.dilate(path_map_dilated, reachable_area_dilation)
+        self.reachable_area = 255 - self.dilate(self.path_map_dilated, reachable_area_dilation)
         self.reachable_area_dilation = reachable_area_dilation
         self.reachable_locs = list(zip(*np.nonzero(self.reachable_area)[::-1]))
         self.reachable_locs_per_destination = {}
 
         if path_map_weighted_dilation:
-            self.path_map = (self.path_map * 0.2 + path_map_dilated * 0.8).astype(np.uint8)
+            self.path_map = (self.path_map * 0.2 + self.path_map_dilated * 0.8).astype(np.uint8)
         else:
-            self.path_map = path_map_dilated
+            self.path_map = self.path_map_dilated
 
         self.path_map_dilation = path_map_dilation
 
-        self.path_map = path_map_dilated
+        # self.path_map = path_map_dilated
 
         # import matplotlib.pyplot as plt
         # plt.imshow(self.path_map)
@@ -235,15 +235,15 @@ class Map(object):
 
     def dilate(self, src, n_iter):
         import cv2
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        dilated = cv2.dilate(src, kernel, iterations=n_iter)
+        distance_map = cv2.distanceTransform(np.uint8(255.0 - src), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+        dilated = np.clip(255.0 - (distance_map / n_iter) * 255.0, 0.0, None)
         return dilated
 
     def find_path(self, start_pos, goal_pos):
         start_coord = self.grid_coord(start_pos[0], start_pos[1], self.path_map_division)
         goal_coord = self.grid_coord(goal_pos[0], goal_pos[1], self.path_map_division)
 
-        waypoints = a_star(self.path_map, start_coord, goal_coord, soft_obstacle_scale=5.0 / 255.0)
+        waypoints = a_star(self.path_map, start_coord, goal_coord, soft_obstacle_scale=1.0)
 
         if waypoints is None:
             return None
@@ -563,7 +563,7 @@ class MapLayout(Map):
            looks reasonable (everything in yellow will be considered as occupied space,
                              no waypoints will be generated there)'''
         super().__init__(img_grey, res, origin, path_map_division=20,
-                         path_map_dilation=5, reachable_area_dilation=3,
+                         path_map_dilation=7, reachable_area_dilation=3,
                          path_map_weighted_dilation=True, name=name)
 
     ''' Transform PNG of top view of map layout to black(occupied) and white(free) image'''
@@ -578,7 +578,7 @@ class MapLayout(Map):
     '''5. Test by generating a path through the maze, make sure the maze is oriented
        correctly'''
 
-    def draw_map_path(self, start=[-2, 0.3], goal=[-4, 0.5]):
+    def draw_map_path(self, start=[-2, 0.3], goal=[-4, 0.5], index=None):
         from system.controller.simulation.environment.map_occupancy_helpers.map_visualizer import OccupancyMapVisualizer
         import matplotlib.pyplot as plt
 
@@ -592,6 +592,7 @@ class MapLayout(Map):
         if waypoints:
             x, y = np.array(waypoints).T
             plt.scatter(x, y)
+            ax.annotate(index, start)
             plt.show()
 
     def draw_path(self, path):
