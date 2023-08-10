@@ -257,6 +257,7 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
         """
         super().__init__(threshold_same=1.0, threshold_reachable=1.0, device=device, debug=debug)
         self.env_model = env_model
+        self.fov = 120 * np.pi / 180
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
@@ -283,11 +284,9 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
                                     step_limit=750, plot_it=False)
 
         if over == 1:
-            self.fov = 120 * np.pi / 180
-
             map_layout = MapLayout(self.env_model)
 
-            overlap_ratios = map_layout.view_overlap(env.xy_coordinates[-1], env.orientation_angle[-1], self.fov,
+            overlap_ratios = map_layout.view_overlap(env.xy_coordinates[-1], env.orientation_angle[-1],
                                                      goal_pos, env.orientation_angle[-1], self.fov, mode='plane')
 
             env.end_simulation()
@@ -314,13 +313,7 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
             between two locations based on its type
 
         arguments:
-        weights_file    -- neural network
         device          -- device used for calculations (default cpu)
-        type            -- type of reachability estimation
-                        distance: returns distance between two coordinates
-                        neural_network: returns neural network prediction using images
-                        simulation: simulates navigation attempt and returns result
-                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
         super().__init__(threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
         self.env_model = "Savinov_val3"
@@ -336,7 +329,7 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
         heading1 = np.degrees(np.arctan2(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]))
 
-        overlap_ratios = self.map_layout.view_overlap(start_pos, heading1, self.fov,
+        overlap_ratios = self.map_layout.view_overlap(start_pos, heading1,
                                                  goal_pos, heading1, self.fov, mode='plane')
 
         return (overlap_ratios[0] + overlap_ratios[1]) / 2

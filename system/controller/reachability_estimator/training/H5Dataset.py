@@ -12,7 +12,6 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
-from system.controller.reachability_estimator.training.utils import src_dst_prep
 from system.plotting.plotResults import plotStartGoalDataset
 
 
@@ -55,18 +54,11 @@ class H5Dataset(torch.utils.data.Dataset):
             return self.dataset[self.keys[index]][()]
 
     def __getitem__(self, index):
-        start_observation, goal_observation, \
+        src_img, dst_img, \
             reachability, start_position, goal_position, \
-            start_orientation, goal_orientation, \
-            _, _, _, _ = self.sample(index)[0]
+            start_orientation, goal_orientation = self.sample(index)[0]
 
-        if len(goal_observation) != 163840:
-            raise ValueError("invlaid sample, should be removed,index :" + str(index))
-
-        # reshaping the images
-        src_img, dst_imgs = src_dst_prep(start_observation, goal_observation, 10)
-
-        return np.array(src_img), np.array(dst_imgs), torch.tensor(reachability), \
+        return np.array(src_img), np.array(dst_img), torch.tensor(reachability), \
             torch.tensor(np.append(goal_position, goal_orientation) - np.append(start_position, start_orientation))
 
     def __len__(self):

@@ -122,7 +122,7 @@ def test_dst(dataset):
     writer.add_scalar("fscore/Testing", test_f1, 1)
 
 
-def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoch, nets):
+def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets):
     """ Log accuracy, precision, recall and f1score for dataset in loader."""
     with torch.no_grad():
         log_loss = 0
@@ -146,12 +146,9 @@ def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoc
             batch_size, win_size, c, h, w = dst_batch.size()
 
             if model_variant == "the_only_variant":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w).view(batch_size, -1))
 
                 # Get prediction
@@ -160,12 +157,9 @@ def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoc
                 # Log accuracy
                 pred_reach = torch.sigmoid(pred_reach_logits).squeeze(1)
             elif model_variant == "pair_conv":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
@@ -177,12 +171,9 @@ def tensor_log(title, loader, train_device, model_variant, n_frame, writer, epoc
                 # Log accuracy
                 pred_reach = torch.sigmoid(pred_reach_logits).squeeze(1)
             elif model_variant == "with_dist":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
@@ -230,7 +221,6 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
         train_device,
         log_interval,
         save_interval,
-        n_frame,
         model_variant
     ) = [global_args[_] for _ in ['model_file',
                                   'resume',
@@ -243,7 +233,6 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                                   'train_device',
                                   'log_interval',
                                   'save_interval',
-                                  'n_frame',
                                   'model_variant']]
 
     # For Tensorboard: log the runs
@@ -303,32 +292,26 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             # Get predictions
             src_img = batch_src_imgs.to(device=train_device, non_blocking=True)
-            dst_imgs = batch_dst_imgs.to(device=train_device, non_blocking=True)
+            dst_img = batch_dst_imgs.to(device=train_device, non_blocking=True)
             r = batch_reachability.to(device=train_device, non_blocking=True)
 
             src_batch = src_img.float()
-            dst_batch = dst_imgs.float()
+            dst_batch = dst_img.float()
             batch_size, win_size, c, h, w = dst_batch.size()
 
             if model_variant == "the_only_variant":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w).view(batch_size, -1))
 
                 # Get prediction
                 pred_reach_logits = nets['reachability_regressor'](pair_features)
 
             elif model_variant == "pair_conv":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
@@ -338,12 +321,9 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                 pred_reach_logits = nets['reachability_regressor'](conv_feature)
 
             elif model_variant == "with_dist":
-                assert dst_batch.size(1) == n_frame
-                src_batch2 = src_batch.unsqueeze(1).expand_as(dst_batch).contiguous()
-
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch2.view(batch_size * win_size, c, h, w),
+                    src_batch.view(batch_size * win_size, c, h, w),
                     dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
 
                 # Convolutional Layer
@@ -389,14 +369,14 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                                   num_workers=n_dataset_worker)
 
         # log performance on the validation set
-        tensor_log("Validation", valid_loader, train_device, model_variant, n_frame, writer, epoch, nets)
+        tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets)
 
         training_loader = DataLoader(train_dataset,
                                      batch_size=batch_size,
                                      num_workers=n_dataset_worker)
 
         # log performance on the training set
-        tensor_log("Training", training_loader, train_device, model_variant, n_frame, writer, epoch, nets, net_opts)
+        tensor_log("Training", training_loader, train_device, model_variant, writer, epoch, nets, net_opts)
 
         epoch += 1
         if epoch > max_epochs:
@@ -429,7 +409,6 @@ if __name__ == '__main__':
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
         'n_dataset_worker': 0,
-        'n_frame': 10,
         'log_interval': 20,
         'save_interval': 5,
         'model_variant': "pair_conv",  # "pair_conv",#"with_dist",#"the_only_variant",

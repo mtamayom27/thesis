@@ -12,31 +12,22 @@ import glob
 import tabulate
 import numpy as np
 
+
 def img_prep(img_array):
     """ image stored in array form to image in correct shape for nn """
-    img = np.reshape(img_array,(64,64,4))
-    img = np.transpose(img,(2,0,1))
+    img = np.reshape(img_array, (64, 64, 4))
+    img = np.transpose(img, (2, 0, 1))
     img = img[:3]
-            
+
     return img
 
-def src_dst_prep(src,dst,nr_frames):
-    """ return src and dst images in correct formatting """
-    src_img = img_prep(src)
-    
-    dst_imgs = []
-    dat = np.array_split(dst,nr_frames)
-    for dt in dat:
-        img = img_prep(dt)
-        dst_imgs.append(img)
-    
-    return src_img,dst_imgs
 
 def pprint_dict(x):
     """
     :param x: a dict
     :return: a string of pretty representation of the dict
     """
+
     def helper(d):
         ret = {}
         for k, v in d.items():
@@ -45,6 +36,7 @@ def pprint_dict(x):
             else:
                 ret[k] = v
         return tabulate.tabulate(ret.items())
+
     return helper(x)
 
 

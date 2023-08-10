@@ -1,8 +1,12 @@
+import math
+
 import matplotlib.colors as mcolors
 
 import matplotlib.animation as animation
 import matplotlib as mpl
 from matplotlib import rc
+
+from system.plotting.plotHelper import TUM_colors
 
 mpl.rcParams['animation.ffmpeg_path'] = "ffmpeg/ffmpeg"
 import networkx as nx
@@ -14,8 +18,8 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from plotting.helper import compute_theta, compute_axis_limits
-from plotting.plotHelper import *
+from system.plotting.helper import compute_theta, compute_axis_limits
+from system.plotting.plotHelper import *
 
 # from plotting.plotThesis import add_cognitive_map
 
@@ -35,22 +39,6 @@ cmaplist[0] = (.9, .9, .9, 0.8)
 # create the new map
 cmap20 = mcolors.LinearSegmentedColormap.from_list(
     'Custom cmap', cmaplist, cmap.N)
-
-TUM_colors = {
-    'TUMBlue': '#0065BD',
-    'TUMSecondaryBlue': '#005293',
-    'TUMSecondaryBlue2': '#003359',
-    'TUMBlack': '#000000',
-    'TUMWhite': '#FFFFFF',
-    'TUMDarkGray': '#333333',
-    'TUMGray': '#808080',
-    'TUMLightGray': '#CCCCC6',
-    'TUMAccentGray': '#DAD7CB',
-    'TUMAccentOrange': '#E37222',
-    'TUMAccentGreen': '#A2AD00',
-    'TUMAccentLightBlue': '#98C6EA',
-    'TUMAccentBlue': '#64A0C8'
-}
 
 cmap_binary = mcolors.ListedColormap([TUM_colors['TUMWhite'], TUM_colors['TUMGray']])
 
@@ -159,6 +147,27 @@ def plotStartGoalDataset(env_model, starts_goals):
         ax.add_artist(circle)
     plt.show()
     env.end_simulation()
+
+
+def plotStartGoalPair(env_model, start_position, start_heading, target_position, target_heading):
+    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
+
+    fig, ax = plt.subplots()
+    add_environment(ax, env)
+    circle = plt.Circle(start_position, 0.2, color=TUM_colors['TUMAccentBlue'], alpha=1)
+    ax.add_artist(circle)
+    arrow = plt.Arrow(start_position[0], start_position[1], math.cos(start_heading), math.sin(start_heading),
+                      color=TUM_colors['TUMAccentBlue'], alpha=1)
+    ax.add_artist(arrow)
+    circle = plt.Circle(target_position, 0.2, color=TUM_colors['TUMAccentOrange'], alpha=1)
+    ax.add_artist(circle)
+    arrow = plt.Arrow(target_position[0], target_position[1], math.cos(target_heading), math.sin(target_heading),
+                      color=TUM_colors['TUMAccentOrange'], alpha=1)
+    ax.add_artist(arrow)
+    plt.show()
+    env.end_simulation()
+
 
 
 def plotSpeeds(xy_speed):

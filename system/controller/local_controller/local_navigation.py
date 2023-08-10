@@ -124,7 +124,7 @@ def get_observations(env):
 
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
-                      collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,
+                      collect_data_traj=False, exploration_phase=False,
                       pc_network: PlaceCellNetwork = None, cognitive_map: CognitiveMapInterface = None):
     """ 
     Agent navigates towards goal.
@@ -166,13 +166,10 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     env.nr_ofsteps = 0
     env.turn_to_goal(gc_network, pod)
 
-    if collect_data_reachable:
-        sample_after_turn = (env.xy_coordinates[-1], env.orientation_angle[-1])
-        first_goal_vector = env.goal_vector
-
     n = 0  # time steps
     stop = False  # stop signal received
     end_state = ""  # for plotting
+    status = 0
     while n < step_limit and not stop:
         env.navigation_step(gc_network, pod, obstacles=obstacles)
 
@@ -215,8 +212,6 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     pc = PlaceCell(gc_connections=gc_network.gc_modules, observations=get_observations(env), coordinates=env.xy_coordinates[-1])
     if collect_data_traj:
         return status, data
-    if collect_data_reachable:
-        return status, [sample_after_turn, first_goal_vector]
     return status, pc
 
 

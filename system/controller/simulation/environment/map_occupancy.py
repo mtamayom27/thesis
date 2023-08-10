@@ -402,7 +402,7 @@ class Map(object):
 
         return result
 
-    def view_overlap(self, pos1, heading1, fov1, pos2, heading2, fov2,
+    def view_overlap(self, pos1, heading1, pos2, heading2, fov,
                      n_test_rays=100, offset=0.06, mode='plane', vis=None):
         """
         Estimate the overlapping area between two camera poses
@@ -420,15 +420,15 @@ class Map(object):
             return xy + normals * offset
 
         if mode == 'plane':
-            depth1 = self.get_1d_depth_plane(pos1, n_test_rays, heading1, fov1)
-            depth2 = self.get_1d_depth_plane(pos2, n_test_rays, heading2, fov2)
-            xy1 = offset_points(depth_to_xy_plane(depth1, pos1, heading1, fov1))
-            xy2 = offset_points(depth_to_xy_plane(depth2, pos2, heading2, fov2))
+            depth1 = self.get_1d_depth_plane(pos1, n_test_rays, heading1, fov)
+            depth2 = self.get_1d_depth_plane(pos2, n_test_rays, heading2, fov)
+            xy1 = offset_points(depth_to_xy_plane(depth1, pos1, heading1, fov))
+            xy2 = offset_points(depth_to_xy_plane(depth2, pos2, heading2, fov))
         elif mode == 'lidar':
-            depth1 = self.get_1d_depth(pos1, n_test_rays, heading1, fov1)
-            depth2 = self.get_1d_depth(pos2, n_test_rays, heading2, fov2)
-            xy1 = offset_points(depth_to_xy(depth1, pos1, heading1, fov1))
-            xy2 = offset_points(depth_to_xy(depth2, pos2, heading2, fov2))
+            depth1 = self.get_1d_depth(pos1, n_test_rays, heading1, fov)
+            depth2 = self.get_1d_depth(pos2, n_test_rays, heading2, fov)
+            xy1 = offset_points(depth_to_xy(depth1, pos1, heading1, fov))
+            xy2 = offset_points(depth_to_xy(depth2, pos2, heading2, fov))
         else:
             raise RuntimeError('Unsupported mode %s' % mode)
 
@@ -458,8 +458,8 @@ class Map(object):
                             for i, (x, y) in enumerate(xy.tolist())]
             return visible_mask
 
-        visible_in_cam1 = visible(xy2, pos1, heading1, fov1)
-        visible_in_cam2 = visible(xy1, pos2, heading2, fov2)
+        visible_in_cam1 = visible(xy2, pos1, heading1, fov)
+        visible_in_cam2 = visible(xy1, pos2, heading2, fov)
 
         # xs, ys = zip(*xy1)
         # vis.scatter('depth1', xs, ys, c='r', marker='+')

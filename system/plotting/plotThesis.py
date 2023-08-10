@@ -9,24 +9,11 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import rc
+
+from system.plotting.plotHelper import TUM_colors
+
 mpl.rcParams['animation.ffmpeg_path'] = "ffmpeg/ffmpeg"
 
-
-TUM_colors = {
-                'TUMBlue': '#0065BD',
-                'TUMSecondaryBlue': '#005293',
-                'TUMSecondaryBlue2': '#003359',
-                'TUMBlack': '#000000',
-                'TUMWhite': '#FFFFFF',
-                'TUMDarkGray': '#333333',
-                'TUMGray': '#808080',
-                'TUMLightGray': '#CCCCC6',
-                'TUMAccentGray': '#DAD7CB',
-                'TUMAccentOrange': '#E37222',
-                'TUMAccentGreen': '#A2AD00',
-                'TUMAccentLightBlue': '#98C6EA',
-                'TUMAccentBlue': '#64A0C8'
-}
 
 cmap_binary = mcolors.ListedColormap([TUM_colors['TUMWhite'], TUM_colors['TUMGray']])
 
