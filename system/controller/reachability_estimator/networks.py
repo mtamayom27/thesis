@@ -41,9 +41,9 @@ class ImagePairEncoderV2(nn.Module):
     def __init__(self, init_scale=1.0, bias=True, no_weight_init=False):
         super(ImagePairEncoderV2, self).__init__()
 
-        # Input: 9 x 64 x 64
-        # img1, img2, img1 - img2 total 9 channels
-        self.conv1 = nn.Conv2d(9, 64, kernel_size=5, stride=2, bias=bias)
+        # Input: 12 x 64 x 64
+        # img1, img2, img1 - img2 total 12 channels
+        self.conv1 = nn.Conv2d(12, 64, kernel_size=5, stride=2, bias=bias)
         # 64 x 30 x 30
         self.conv2 = nn.Conv2d(64, 128, kernel_size=5, stride=2, bias=bias)
         # 128 x 13 x 13

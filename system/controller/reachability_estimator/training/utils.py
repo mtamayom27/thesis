@@ -13,11 +13,10 @@ import tabulate
 import numpy as np
 
 
-def img_prep(img_array):
+def img_reshape(img_array):
     """ image stored in array form to image in correct shape for nn """
     img = np.reshape(img_array, (64, 64, 4))
     img = np.transpose(img, (2, 0, 1))
-    img = img[:3]
 
     return img
 

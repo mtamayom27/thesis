@@ -313,12 +313,8 @@ class ReachabilityDataset(data.Dataset):
         dst_img = self.get_camera_view(map_name, dst_sample)[2]
 
         print(f"Computing reachability for {(src_sample[0], src_sample[1])}, {(dst_sample[0], dst_sample[1])}")
-        r = 1.0 if self.view_overlap_reachability_controller.new_reachable(map_name, src_sample, dst_sample, path_l, src_img, dst_img) else 0.0
-        # r, coo, ori = self.reachable(map_name, src_sample, dst_sample, same, path_l)
+        r = 1.0 if self.view_overlap_reachability_controller.reachable(map_name, src_sample, dst_sample, path_l, src_img, dst_img) else 0.0
         print(f"Reachability computed {r}")
-
-        if r is None:
-            raise ValueError("no reachability error")
 
         # image transformation
         return src_img.flatten(), dst_img.flatten(), r, [src_sample[0], dst_sample[0]], [src_sample[1], dst_sample[1]]
@@ -339,9 +335,9 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
     f = h5py.File(filepath + ".hd5", 'a')
 
     distance_min = 0
-    distance_max = 5
+    distance_max = 1
     range_min = 0
-    range_max = 100
+    range_max = 10
     frame_interval = 3
 
     # Trajectories
@@ -357,7 +353,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
     f.attrs.create('map_type', env_model)
 
     dtype = np.dtype([
-        ('start_observation', (np.int32, 16384)),
+        ('start_observation', (np.int32, 16384)), # 64 * 64 * 4
         ('goal_observation', (np.int32, 16384)),
         ('reached', np.float32),
         ('start', (np.float32, 2)),  # x, y
@@ -366,7 +362,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
         ('goal_orientation', np.float32)  # theta
     ])
 
-    seed = 555553
+    seed = 555554
     rng_sampleid = np.random.RandomState(seed)
 
     for i in range(nr_samples):
@@ -425,12 +421,14 @@ def display_samples(filename, imageplot=False):
 
     print("Number of samples: " + str(len(hf.keys())))
 
+    reached = 0
+    count = len(hf.keys())
     reach = []
     starts_goals = []
-    for key in list(hf.keys()):
-        if len(reach) % 50 == 0:
-            print("At sample number", len(reach))
-        if len(reach) > 5000:
+    for i, key in enumerate(list(hf.keys())):
+        if i % 1000 == 0:
+            print("At sample number", i)
+        if imageplot and i > 5000:
             break
         d = hf[key][()][0]
 
@@ -444,13 +442,16 @@ def display_samples(filename, imageplot=False):
                 img = np.reshape(dt, (64, 64, 4))
                 imgplot = plt.imshow(img)
                 plt.show()
-
+        if d[2] == 1.0:
+            reached += 1
         starts_goals.append((d[3], d[4]))
         reach.append(d[2])
-    print("reached", reach.count(1.0))
-    print("failed", reach.count(0.0))
-    print("percentage reached/failed", reach.count(1.0) / len(reach))
-    plotStartGoalDataset(env_model, starts_goals)
+    print("overall", count)
+    print("reached", reached)
+    print("failed", count - reached)
+    print("percentage reached/all", reached / count)
+    if imageplot:
+        plotStartGoalDataset(env_model, starts_goals)
 
 
 if __name__ == "__main__":
@@ -469,8 +470,8 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        create_and_save_reachability_samples("test10", 10, "test_10.hd5")
-        # display_samples("test10.hd5")
+        create_and_save_reachability_samples("long_trajectories", 20000, "long_trajectories.hd5")
+        display_samples("long_trajectories.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")
         # create_and_save_reachability_samples("test3", 1, "test_3.hd5")

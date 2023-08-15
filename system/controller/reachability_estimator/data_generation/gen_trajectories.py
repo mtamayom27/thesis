@@ -30,7 +30,7 @@ def get_path():
 
 
 # Print debug statements
-debug = True  # False
+debug = False  # False
 
 
 def print_debug(*params):
@@ -38,7 +38,7 @@ def print_debug(*params):
         print(*params)
 
 
-plotting = False
+plotting = True
 
 
 def display_trajectories(filename, env_model):
@@ -107,15 +107,6 @@ def valid_location(env_model):
         env.end_simulation()
 
 
-def gen_samples(course):
-    ''' Generate start and goal '''
-    start = valid_location(course)
-
-    # The goal location does not have to be entirely reachable, only within range
-    goal = sample_location(course)
-    return [start, goal]
-
-
 def gen_multiple_goals(env_name, nr_of_goals):
     ''' Generate start and multiple subgoals'''
 
@@ -128,7 +119,7 @@ def gen_multiple_goals(env_name, nr_of_goals):
     return points
 
 
-def waypoint_movement(env_model, cam_freq, traj_length):
+def waypoint_movement(env_model, cam_freq, traj_length, map_layout, gc_network):
     ''' Calculates environment-specific waypoints from start to goal and creates
     trajectory by making agent follow them.
     
@@ -138,51 +129,39 @@ def waypoint_movement(env_model, cam_freq, traj_length):
     traj_length     -- how many timesteps should the agent run
     '''
 
-    # generate start and final goal
-    start, goal = gen_samples(env_model)
-
-    # calculate waypoints, if no path can be found return
-    savinov = MapLayout(env_model)
-    waypoints = savinov.find_path(start, goal)
-    if waypoints is None:
-        print_debug("No path found!")
-        return []
-
     # initialize environment
-    goals = waypoints
+    start = valid_location(env_model)
+    samples = []
     visualize = False
     dt = 1e-2
     env = PybulletEnvironment(visualize, dt, env_model, "analytical", build_data_set=True, start=start)
-    gc_network = setup_gc_network(dt)
 
-    samples = []
-    goal_reached = True
-    for g in goals:
-        print_debug("new waypoint", g)
+    while len(samples) < traj_length / cam_freq:
+        goal = sample_location(env_model)
+        if (goal[0] - start[0]) ** 2 + (goal[1] - start[1]) ** 2 < 3:
+            continue
 
-        # if trajectory_length has been reached the trajectory can be saved
-        if len(samples) > traj_length / cam_freq:
-            break
+        # calculate waypoints, if no path can be found return
+        waypoints = map_layout.find_path(start, goal)
+        if waypoints is None:
+            print_debug("No path found!")
+            continue
 
-        over, data = vector_navigation(env, g, gc_network, model="analytical", step_limit=5000, plot_it=False,
-                                       collect_data_traj=cam_freq)
-        if over == -1 or over == 0:
-            goal_reached = False
-        else:
-            goal_reached = True
-        samples += data
+        for g in waypoints:
+            # if trajectory_length has been reached the trajectory can be saved
+            if len(samples) > traj_length / cam_freq:
+                break
 
-    # reaching the last subgoal is an indicator of a valid trajectory (the agent actually moved along the path)
-    if goal_reached:
-        print_debug("successfull trajectory")
-        if plotting: plot.plotTrajectoryInEnvironment(env)
-        env.end_simulation()
-        return samples
-    else:
-        print_debug("unsuccessfull trajectory")
-        if plotting: plot.plotTrajectoryInEnvironment(env)
-        env.end_simulation()
-        return []
+            over, data = vector_navigation(env, g, gc_network, model="analytical", step_limit=5000, plot_it=False,
+                                           obstacles=False, collect_data_traj=cam_freq)
+            samples += data
+        if len(samples) > 0:
+            start = samples[-1][0]
+
+    if plotting:
+        plot.plotTrajectoryInEnvironment(env)
+    env.end_simulation()
+    return samples
 
 
 def generate_multiple_trajectories(out_hd5_obj, num_traj, trajectory_length, cam_freq, mapname):
@@ -201,8 +180,12 @@ def generate_multiple_trajectories(out_hd5_obj, num_traj, trajectory_length, cam
         ('grid_cell_spiking', (np.float32, 9600))
     ])
 
-    seed = 123456
+    seed = 123457
     rng_trajid = np.random.RandomState(seed)
+
+    dt = 1e-2
+    gc_network = setup_gc_network(dt)
+    map_layout = MapLayout(mapname)
 
     i = 0
     while i < num_traj:
@@ -217,11 +200,8 @@ def generate_multiple_trajectories(out_hd5_obj, num_traj, trajectory_length, cam
             print('dataset %s exists. skipped' % dset_name)
             continue
 
-        samples = []
-        while len(samples) < 60:
-            # try again if unsuccesfull or trajectory too short
-            samples = waypoint_movement(mapname, cam_freq, trajectory_length)
-
+        samples = waypoint_movement(mapname, cam_freq, trajectory_length, map_layout, gc_network)
+        print(f"trajectory {samples[0]}-{samples[1]} with {len(samples)} steps")
         dset = out_hd5_obj.create_dataset(
             dset_name,
             data=np.array(samples, dtype=dtype),
@@ -271,8 +251,8 @@ if __name__ == "__main__":
     if test:
         print("Testing trajectory generation in available mazes.")
         print("Testing Savinov_val3")
-        generate_and_save_trajectories("test_10", "Savinov_val3", 5, 3000, 10)
-        display_trajectories("test_10", "Savinov_val3")
+        generate_and_save_trajectories("long_trajectories", "Savinov_val3", 100, 5000, 3)
+        display_trajectories("long_trajectories", "Savinov_val3")
         # print("Testing Savinov_val2")
         # save_trajectories("test_2", "Savinov_val2", 1, 3000, 10)
         # display_trajectories("test_2", "Savinov_val2")

@@ -297,13 +297,13 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             src_batch = src_img.float()
             dst_batch = dst_img.float()
-            batch_size, win_size, c, h, w = dst_batch.size()
+            batch_size, c, h, w = dst_batch.size()
 
             if model_variant == "the_only_variant":
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size * win_size, c, h, w),
-                    dst_batch.view(batch_size * win_size, c, h, w).view(batch_size, -1))
+                    src_batch.view(batch_size, c, h, w),
+                    dst_batch.view(batch_size, c, h, w).view(batch_size, -1))
 
                 # Get prediction
                 pred_reach_logits = nets['reachability_regressor'](pair_features)
@@ -311,8 +311,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
             elif model_variant == "pair_conv":
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size * win_size, c, h, w),
-                    dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
+                    src_batch.view(batch_size, c, h, w),
+                    dst_batch.view(batch_size, c, h, w)).view(batch_size, -1)
 
                 # Convolutional Layer
                 conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
@@ -323,11 +323,11 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
             elif model_variant == "with_dist":
                 # Extract features
                 pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size * win_size, c, h, w),
-                    dst_batch.view(batch_size * win_size, c, h, w)).view(batch_size, win_size, -1)
+                    src_batch.view(batch_size, c, h, w),
+                    dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
 
                 # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 3))
+                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
 
                 # Get prediction
                 pred_reach_logits = nets['reachability_regressor'](torch.cat((batch_transformation, conv_feature), 1))
@@ -338,6 +338,7 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             # Loss
             loss = torch.nn.functional.binary_cross_entropy_with_logits(pred_reach_logits.squeeze(1), r)
+            #todo loss function
             # print("bce",loss.item())
 
             # backwards gradient
@@ -349,12 +350,10 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             # Logging the run
             if idx % log_interval == 0:
-                print('epoch %d batch time %.2f sec loss: %6.2f' % (
-                    epoch, (time.time() - last_log_time) / log_interval, loss.item()))
-                print('learning rate:\n%s' % tabulate.tabulate([
-                    (name, opt.param_groups[0]['lr']) for name, opt in net_opts.items()]))
+                print(f'epoch {epoch}; batch time {time.time() - last_log_time}; sec loss: {loss.item()}')
+                print(f"learning rate:\n{tabulate.tabulate([(name, opt.param_groups[0]['lr']) for name, opt in net_opts.items()])}")
                 for name, net in nets.items():
-                    print('%s grad:\n%s' % (name, module_grad_stats(net)))
+                    print(f'{name} grad:\n{module_grad_stats(net)}')
 
                 # writer.add_scalar("Loss/train",loss, epoch*n_samples+idx*batch_size)
                 last_log_time = time.time()
@@ -362,21 +361,6 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
         # learning rate decay
         for _, sched in net_scheds.items():
             sched.step()
-
-        # Validation
-        valid_loader = DataLoader(valid_dataset,
-                                  batch_size=batch_size,
-                                  num_workers=n_dataset_worker)
-
-        # log performance on the validation set
-        tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets)
-
-        training_loader = DataLoader(train_dataset,
-                                     batch_size=batch_size,
-                                     num_workers=n_dataset_worker)
-
-        # log performance on the training set
-        tensor_log("Training", training_loader, train_device, model_variant, writer, epoch, nets, net_opts)
 
         epoch += 1
         if epoch > max_epochs:
@@ -387,6 +371,14 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
             print('saving model...')
             writer.flush()
             _save_model(nets, net_opts, epoch, global_args, model_file)
+
+    # Validation
+    valid_loader = DataLoader(valid_dataset,
+                              batch_size=batch_size,
+                              num_workers=n_dataset_worker)
+
+    # log performance on the validation set
+    tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets)
 
 
 if __name__ == '__main__':
@@ -411,16 +403,16 @@ if __name__ == '__main__':
         'n_dataset_worker': 0,
         'log_interval': 20,
         'save_interval': 5,
-        'model_variant': "pair_conv",  # "pair_conv",#"with_dist",#"the_only_variant",
+        'model_variant': "with_dist",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu"
     }
 
     # Defining the NN and optimizers
     nets = {}
     if global_args["model_variant"] == "pair_conv":
-        input_dim = 512 * global_args["n_frame"]
+        input_dim = 512
     elif global_args["model_variant"] == "with_dist":
-        input_dim = 512 * global_args["n_frame"] + 2
+        input_dim = 512 + 3
     else:
         input_dim = 5120
     net = networks.ReachabilityRegressor(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
@@ -457,7 +449,7 @@ if __name__ == '__main__':
 
     else:
         # Training
-        hd5file = "test10.hd5"
+        hd5file = "long_trajectories.hd5"
 
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")

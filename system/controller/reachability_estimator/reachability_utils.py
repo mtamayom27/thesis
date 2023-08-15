@@ -37,7 +37,7 @@ class ViewOverlapReachabilityController:
                                                  self.fov, mode='plane')
         return overlap_ratios
 
-    def new_reachable(self, env_model, src_sample, dst_sample, path_l, src_image=None, dst_image=None):
+    def reachable(self, env_model, src_sample, dst_sample, path_l, src_image=None, dst_image=None):
         visual_overlap = min(self.compute_overlap(env_model,
                                                   src_sample[0], src_sample[1],
                                                   dst_sample[0], dst_sample[1]))
@@ -48,7 +48,6 @@ class ViewOverlapReachabilityController:
             delta_theta -= math.pi * 2
 
         print(f"vis overlap {visual_overlap}, path {path_l}, in fov {dst_in_fov}, eu dist {math.sqrt(distance_squared)}, ∆Theta {delta_theta * 180 / math.pi}")
-        display_sample(env_model, src_sample, dst_sample, src_image, dst_image)
         return visual_overlap >= self.L_min and \
             path_l <= self.R_max and \
             dst_in_fov and \

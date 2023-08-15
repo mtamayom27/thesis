@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
+from system.controller.reachability_estimator.training.utils import img_reshape
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
 from system.plotting.plotResults import plotStartGoalDataset
@@ -57,8 +59,9 @@ class H5Dataset(torch.utils.data.Dataset):
         src_img, dst_img, \
             reachability, start_position, goal_position, \
             start_orientation, goal_orientation = self.sample(index)[0]
-
-        return np.array(src_img), np.array(dst_img), torch.tensor(reachability), \
+        src_img = img_reshape(src_img)
+        dst_img = img_reshape(dst_img)
+        return src_img, dst_img, torch.tensor(reachability), \
             torch.tensor(np.append(goal_position, goal_orientation) - np.append(start_position, start_orientation))
 
     def __len__(self):
