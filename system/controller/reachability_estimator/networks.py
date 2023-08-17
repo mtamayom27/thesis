@@ -7,18 +7,78 @@
 *
 ***************************************************************************************
 '''
+import math
+
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 
-class ReachabilityRegressor(nn.Module):
+class AngleRegression(nn.Module):
+    def __init__(self, init_scale=1.0, bias=True, no_weight_init=False):
+        super(AngleRegression, self).__init__()
+
+        self.fc = nn.Linear(4, 1, bias=bias)
+        self.sigmoid = nn.Sigmoid()
+        self.two_pi = nn.Parameter(torch.tensor(math.pi * 2).squeeze(0))
+        self.pi = nn.Parameter(torch.tensor(math.pi).squeeze(0))
+
+        if not no_weight_init:
+            nn.init.orthogonal_(self.fc.weight, init_scale)
+            if hasattr(self.fc, 'bias') and self.fc.bias is not None:
+                with torch.no_grad():
+                    self.fc.bias.zero_()
+
+    def forward(self, x):
+        x = self.fc(x)
+        x = self.sigmoid(x)
+        x = x * self.two_pi - self.pi
+        return x.squeeze(1)
+
+
+class PositionRegression(nn.Module):
+    def __init__(self, init_scale=1.0, bias=True, no_weight_init=False):
+        super(PositionRegression, self).__init__()
+
+        self.fc = nn.Linear(4, 2, bias=bias)
+
+        if not no_weight_init:
+            nn.init.orthogonal_(self.fc.weight, init_scale)
+            if hasattr(self.fc, 'bias') and self.fc.bias is not None:
+                with torch.no_grad():
+                    self.fc.bias.zero_()
+
+    def forward(self, x):
+        x = self.fc(x)
+        return x
+
+
+class ReachabilityRegression(nn.Module):
+    def __init__(self, init_scale=1.0, bias=True, no_weight_init=False):
+        super(ReachabilityRegression, self).__init__()
+
+        self.fc = nn.Linear(4, 1, bias=bias)
+        self.sigmoid = nn.Sigmoid()
+
+        if not no_weight_init:
+            nn.init.orthogonal_(self.fc.weight, init_scale)
+            if hasattr(self.fc, 'bias') and self.fc.bias is not None:
+                with torch.no_grad():
+                    self.fc.bias.zero_()
+
+    def forward(self, x):
+        x = self.fc(x)
+        x = self.sigmoid(x)
+        return x.squeeze(1)
+
+
+class FCLayers(nn.Module):
     def __init__(self, input_dim=512, init_scale=1.0, bias=True, no_weight_init=False):
-        super(ReachabilityRegressor, self).__init__()
+        super(FCLayers, self).__init__()
 
         self.fc1 = nn.Linear(input_dim, input_dim // 2, bias=bias)
         self.fc2 = nn.Linear(input_dim // 2, input_dim // 2, bias=bias)
-        self.fc3 = nn.Linear(input_dim // 2, 1, bias=bias)
+        self.fc3 = nn.Linear(input_dim // 2, 4, bias=bias)
 
         if not no_weight_init:
             for layer in (self.fc1, self.fc2, self.fc3):
@@ -33,7 +93,6 @@ class ReachabilityRegressor(nn.Module):
         x = self.fc2(x)
         x = F.relu(x)
         x = self.fc3(x)
-        # Output are logits. Need to apply sigmoid to get values in (0, 1)
         return x
 
 

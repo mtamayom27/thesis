@@ -313,7 +313,10 @@ class ReachabilityDataset(data.Dataset):
         dst_img = self.get_camera_view(map_name, dst_sample)[2]
 
         print(f"Computing reachability for {(src_sample[0], src_sample[1])}, {(dst_sample[0], dst_sample[1])}")
-        r = 1.0 if self.view_overlap_reachability_controller.reachable(map_name, src_sample, dst_sample, path_l, src_img, dst_img) else 0.0
+        try:
+            r = 1.0 if self.view_overlap_reachability_controller.reachable(map_name, src_sample, dst_sample, path_l, src_img, dst_img) else 0.0
+        except ValueError:
+            return None
         print(f"Reachability computed {r}")
 
         # image transformation
@@ -380,7 +383,8 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
         random_index = random.randrange(rd.traj_len_cumsum[-1])
         item = rd.__getitem__(random_index)
         if not item:
-            raise ValueError("no item found")
+            print(f'Failed to get item {random_index}')
+            continue
         src_img, dst_img, r, s, orientations = item
 
         sample = (
@@ -470,7 +474,7 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        create_and_save_reachability_samples("long_trajectories", 20000, "long_trajectories.hd5")
+        create_and_save_reachability_samples("long_trajectories", 50000, "long_trajectories.hd5")
         display_samples("long_trajectories.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")
