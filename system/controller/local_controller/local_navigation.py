@@ -119,7 +119,7 @@ def get_observations(env):
     # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
     if len(observations) < 10:
         observations += [observations[-1]] * (10 - len(observations))
-    return [np.transpose(observation[2], (2, 0, 1))[:3] for observation in observations]
+    return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",

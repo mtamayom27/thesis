@@ -52,7 +52,7 @@ class CognitiveMapInterface:
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
 
-        weights_filename = "trained_model_pair_conv.30"
+        weights_filename = "trained_model_new.50"
         weights_filepath = os.path.join(get_path_re(), weights_filename)
         self.reach_estimator = init_reachability_estimator(re_type, weights_file=weights_filepath, env_model=env_model,
                                                            debug=debug)
@@ -332,6 +332,12 @@ class CognitiveMap(CognitiveMapInterface):
         self.update_reachabilities()
 
 
+def shuffle_heuristic(nodes):
+    nodes_mean = np.mean([x.env_coordinates for x in nodes], axis=0)
+    distances = [np.linalg.norm(x.env_coordinates - nodes_mean) for x in nodes]
+    return np.take(nodes, np.argsort(distances))
+
+
 class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", env_model=None):
         super().__init__(from_data, re_type, env_model)
@@ -357,35 +363,35 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         """Check if the waypoint p is mergeable with the existing graph"""
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
-    def shuffle_heuristic(self):
-        nodes_mean = np.mean([x.env_coordinates for x in self.trajectory_nodes], axis=0)
-        distances = [np.linalg.norm(x.env_coordinates - nodes_mean) for x in self.trajectory_nodes]
-        return np.take(self.trajectory_nodes, np.argsort(distances))
-
     def construct_graph(self):
-        if len(self.trajectory_nodes) == 0:
-            return
+        while True:
+            if len(self.trajectory_nodes) == 0:
+                break
 
-        # TODO: more clever node choosing here
-        self.add_node_to_map(self.trajectory_nodes.pop(0))  # Initialize graph with the first element from trajectories
+            self.add_node_to_map(self.trajectory_nodes.pop(0))
 
-        updated = True
-        while updated:
-            updated = False
-            shuffled_candidates = self.shuffle_heuristic()
-            for candidate in shuffled_candidates:
-                if self.is_mergeable(candidate):
-                    self.trajectory_nodes.remove(candidate)
-                else:
-                    for existing_node in list(self.node_network.nodes):
-                        connectable, weight = self.is_connectable(candidate, existing_node)
-                        if connectable:
-                            if candidate not in self.node_network.nodes:
-                                self.add_node_to_map(candidate)
-                                self.trajectory_nodes.remove(candidate)
-                            self.calculate_and_add_edge(existing_node, candidate, weight)
-                            updated = True
+            updated = True
+            while updated:
+                updated = False
+                shuffled_candidates = shuffle_heuristic(self.trajectory_nodes)
+                for candidate in shuffled_candidates:
+                    if self.is_mergeable(candidate):
+                        self.trajectory_nodes.remove(candidate)
+                    else:
+                        for existing_node in list(self.node_network.nodes):
+                            connectable, weight = self.is_connectable(candidate, existing_node)
+                            if connectable:
+                                if candidate not in self.node_network.nodes:
+                                    self.add_node_to_map(candidate)
+                                    self.trajectory_nodes.remove(candidate)
+                                self.calculate_and_add_edge(existing_node, candidate, weight)
+                                updated = True
 
+        for node in self.node_network.nodes:
+            if self.node_network.degree(node) == 0:
+                self.trajectory_nodes.append(node)
+        for node in self.trajectory_nodes:
+            self.node_network.remove_node(node)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
 
     def calculate_and_add_edge(self, node, pc, reachability_weight):

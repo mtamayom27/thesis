@@ -301,13 +301,13 @@ class ReachabilityDataset(data.Dataset):
         self._init_once(idx)
 
         # choose with probability p from same/different trajectory
-        p = self.rng.uniform(0.0, 1.0)
+        # p = self.rng.uniform(0.0, 1.0)
 
-        self.sample_diff_traj_prob = 0.1
-        if p < self.sample_diff_traj_prob:
-            map_name, src_sample, dst_sample, path_l = self._draw_sample_diff_traj(idx)
-        else:
-            map_name, src_sample, dst_sample, path_l = self._draw_sample_same_traj(idx)
+        # self.sample_diff_traj_prob = 0.1
+        # if p < self.sample_diff_traj_prob:
+        #     map_name, src_sample, dst_sample, path_l = self._draw_sample_diff_traj(idx)
+        # else:
+        map_name, src_sample, dst_sample, path_l = self._draw_sample_same_traj(idx)
 
         src_img = self.get_camera_view(map_name, src_sample)[2]
         dst_img = self.get_camera_view(map_name, dst_sample)[2]
@@ -368,7 +368,8 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
     seed = 555554
     rng_sampleid = np.random.RandomState(seed)
 
-    for i in range(nr_samples):
+    i = 0
+    while i < nr_samples:
         import time
         start_time = time.time()
         sample_id = rng_sampleid.randint(0xfffffff)
@@ -378,6 +379,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
 
         if dset_name in f:
             print('dataset %s exists. skipped' % dset_name)
+            i += 1
             continue
 
         random_index = random.randrange(rd.traj_len_cumsum[-1])
@@ -407,7 +409,8 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
             maxshape=(None,), dtype=dtype)
 
         f.flush()
-        print("--- %s seconds --- to create this sample" % (time.time() - start_time))
+        print(f"--- {time.time() - start_time} seconds --- to create {i}th sample")
+        i += 1
 
 
 def display_samples(filename, imageplot=False):
@@ -424,7 +427,7 @@ def display_samples(filename, imageplot=False):
     env_model = hf.attrs["map_type"]
 
     print("Number of samples: " + str(len(hf.keys())))
-
+    return
     reached = 0
     count = len(hf.keys())
     reach = []
@@ -474,7 +477,7 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        create_and_save_reachability_samples("long_trajectories", 50000, "long_trajectories.hd5")
+        # create_and_save_reachability_samples("long_trajectories", 180063, "long_trajectories.hd5")
         display_samples("long_trajectories.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")

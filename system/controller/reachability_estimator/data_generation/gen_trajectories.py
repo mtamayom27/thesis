@@ -251,7 +251,7 @@ if __name__ == "__main__":
     if test:
         print("Testing trajectory generation in available mazes.")
         print("Testing Savinov_val3")
-        generate_and_save_trajectories("long_trajectories", "Savinov_val3", 100, 5000, 3)
+        # generate_and_save_trajectories("long_trajectories", "Savinov_val3", 49, 5000, 3)
         display_trajectories("long_trajectories", "Savinov_val3")
         # print("Testing Savinov_val2")
         # save_trajectories("test_2", "Savinov_val2", 1, 3000, 10)

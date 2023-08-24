@@ -10,7 +10,6 @@
 
 import torch
 import time
-import tabulate
 from torchmetrics import Accuracy, F1Score
 from torchmetrics.classification import BinaryPrecision, BinaryRecall, BinaryAccuracy, BinaryF1Score
 from torch.utils.data import DataLoader, RandomSampler
@@ -19,11 +18,12 @@ from torch.utils.tensorboard import SummaryWriter
 import sys
 import os
 
+from system.controller.reachability_estimator.networks import initialize_network, get_prediction
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
-from system.controller.reachability_estimator import networks
 from system.controller.reachability_estimator.training.H5Dataset import H5Dataset
-from system.controller.reachability_estimator.training.utils import save_model, load_model, module_grad_stats
+from system.controller.reachability_estimator.training.utils import save_model, load_model
 
 
 def get_path():
@@ -65,20 +65,22 @@ def _save_model(nets, net_opts, epoch, global_args, model_file):
     save_model(state, epoch, '', model_file)
 
 
-def test_dst(dataset):
+def run_test_model(dataset):
     """ Test model on dataset. Logs accuracy, precision, recall and f1score. """
 
-    from system.controller.reachability_estimator.reachabilityEstimation import OldNetworkReachabilityEstimator
-    filename = "trained_model_pair_conv.30"
+    from system.controller.reachability_estimator.reachabilityEstimation import NetworkReachabilityEstimator
+    filename = "trained_model_new.50"
     filepath = os.path.join(os.path.join(os.path.dirname(__file__), "../data/models"), filename)
-    reach_estimator = OldNetworkReachabilityEstimator(weights_file=filepath)
+    reach_estimator = NetworkReachabilityEstimator(weights_file=filepath)
 
-    sampler = RandomSampler(dataset, True, len(dataset))
+    n_samples = 6400
+    sampler = RandomSampler(dataset, True, n_samples)
 
+    batch_size = 64
     loader = DataLoader(dataset,
-                        batch_size=64,
+                        batch_size=batch_size,
                         sampler=sampler,
-                        num_workers=24,
+                        num_workers=0,
                         pin_memory=True,
                         drop_last=True)
 
@@ -92,6 +94,7 @@ def test_dst(dataset):
     recall = BinaryRecall()
     f1 = BinaryF1Score()
     for idx, item in enumerate(loader):
+        print(f"Processing batch {idx} out of {n_samples // batch_size}")
         batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
         src_img = batch_src_imgs.to(device="cpu", non_blocking=True)
         dst_imgs = batch_dst_imgs.to(device="cpu", non_blocking=True)
@@ -100,7 +103,7 @@ def test_dst(dataset):
         src_batch = src_img.float()
         dst_batch = dst_imgs.float()
 
-        pred_r = reach_estimator.predict_reachability_batch(src_batch, dst_batch, batch_size=64)
+        pred_r = reach_estimator.predict_reachability_batch(src_batch, dst_batch, batch_size=batch_size)
         pred_r = torch.from_numpy(pred_r)
 
         test_accuracy += accuracy(pred_r, r.int())
@@ -236,7 +239,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
         save_interval,
         model_variant,
         position_loss_weight,
-        angle_loss_weight
+        angle_loss_weight,
+        backbone
     ) = [global_args[_] for _ in ['model_file',
                                   'resume',
                                   'batch_size',
@@ -250,7 +254,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                                   'save_interval',
                                   'model_variant',
                                   'position_loss_weight',
-                                  'angle_loss_weight'
+                                  'angle_loss_weight',
+                                  'backbone'
     ]]
 
     # For Tensorboard: log the runs
@@ -318,56 +323,14 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             src_batch = src_img.float()
             dst_batch = dst_img.float()
-            batch_size, c, h, w = dst_batch.size()
 
-            if model_variant == "the_only_variant":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w).view(batch_size, -1))
-
-                # Get prediction
-                linear_features = nets['fully_connected'](pair_features)
-                reachability_prediction = nets["reachability_regression"](linear_features)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features)
-            elif model_variant == "pair_conv":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
-
-                # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
-
-                # Get prediction
-                linear_features = nets['fully_connected'](conv_feature)
-                reachability_prediction = nets["reachability_regression"](linear_features)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features)
-
-            elif model_variant == "with_dist":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
-
-                # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
-
-                # Get prediction
-                linear_features = nets['fully_connected'](torch.cat((batch_transformation, conv_feature), 1))
-                reachability_prediction = nets["reachability_regression"](linear_features)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features)
-            else:
-                print("This variant does not exist")
-                sys.exit(0)
+            prediction = get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation)
+            reachability_prediction, position_prediction, angle_prediction = prediction
 
             # Loss
-            loss_reachability = torch.nn.functional.binary_cross_entropy(reachability_prediction.squeeze(1), r, reduction='none')
-            loss_position = torch.sqrt(torch.sum(torch.nn.functional.mse_loss(position_prediction.squeeze(1), position, reduction='none'), dim=1))
-            loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction.squeeze(1), angle, reduction='none'))
+            loss_reachability = torch.nn.functional.binary_cross_entropy(reachability_prediction, r, reduction='none')
+            loss_position = torch.sqrt(torch.sum(torch.nn.functional.mse_loss(position_prediction, position, reduction='none'), dim=1))
+            loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction, angle, reduction='none'))
 
             loss = loss_reachability + r @ (position_loss_weight * loss_position + angle_loss_weight * loss_angle)
             loss = loss.sum()
@@ -442,11 +405,11 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_model"),
-        'resume': True,
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_model_res_net"),
+        'resume': False,
         'batch_size': 64,
         'samples_per_epoch': 10000,
-        'max_epochs': 30,
+        'max_epochs': 55,
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
         'n_dataset_worker': 0,
@@ -455,56 +418,15 @@ if __name__ == '__main__':
         'model_variant': "pair_conv",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu",
         'position_loss_weight': 0.06,
-        'angle_loss_weight': 0.03
+        'angle_loss_weight': 0.03,
+        'backbone': 'convolutional'  # convolutional, res_net
     }
 
     # Defining the NN and optimizers
-    nets = {}
-    if global_args["model_variant"] == "pair_conv":
-        input_dim = 512
-    elif global_args["model_variant"] == "with_dist":
-        input_dim = 512 + 3
-    else:
-        input_dim = 5120
+    nets = initialize_network(global_args['backbone'], global_args['model_variant'])
 
-    net = networks.AngleRegression(init_scale=1.0, no_weight_init=False)
-    nets["angle_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = networks.PositionRegression(init_scale=1.0, no_weight_init=False)
-    nets["position_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = networks.ReachabilityRegression(init_scale=1.0, no_weight_init=False)
-    nets["reachability_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = networks.FCLayers(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
-    nets["fully_connected"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = networks.ConvEncoder(init_scale=1.0, input_dim=512, no_weight_init=False)
-    nets["conv_encoder"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = networks.ImagePairEncoderV2(init_scale=1.0)
-    nets["img_encoder"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    testing = False
-    validate = True
+    testing = True
+    validate = False
 
     if validate:
         hd5file = "long_trajectories.hd5"
@@ -531,8 +453,7 @@ if __name__ == '__main__':
 
         dataset = H5Dataset(filepath)
 
-        test_dst(dataset)
-
+        run_test_model(dataset)
     else:
         # Training
         hd5file = "long_trajectories.hd5"

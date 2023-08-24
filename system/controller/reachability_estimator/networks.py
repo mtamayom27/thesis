@@ -10,8 +10,188 @@
 import math
 
 import torch
+import torchvision
 from torch import nn
 import torch.nn.functional as F
+
+
+def initializeCNN(model_variant='pair_conv'):
+
+    # Defining the NN and optimizers
+    nets = {}
+    if model_variant == "pair_conv":
+        input_dim = 512
+    elif model_variant == "with_dist":
+        input_dim = 512 + 3
+    else:
+        input_dim = 5120
+
+    net = AngleRegression(init_scale=1.0, no_weight_init=False)
+    nets["angle_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = PositionRegression(init_scale=1.0, no_weight_init=False)
+    nets["position_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
+    nets["reachability_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = FCLayers(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
+    nets["fully_connected"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = ConvEncoder(init_scale=1.0, input_dim=512, no_weight_init=False)
+    nets["conv_encoder"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = ImagePairEncoderV2(init_scale=1.0)
+    nets["img_encoder"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+    return nets
+
+
+def initializeResNet(model_variant='pair_conv'):
+    # Defining the NN and optimizers
+    nets = {}
+    if model_variant == "pair_conv":
+        input_dim = 512
+    elif model_variant == "with_dist":
+        input_dim = 512 + 3
+    else:
+        input_dim = 5120
+
+    net = AngleRegression(init_scale=1.0, no_weight_init=False)
+    nets["angle_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = PositionRegression(init_scale=1.0, no_weight_init=False)
+    nets["position_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
+    nets["reachability_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = FcWithDropout(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
+    nets["fully_connected"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = torchvision.models.resnext101_64x4d(pretrained=True)
+    nets["res_net"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+    return nets
+
+
+def initialize_network(backbone='convolutional', model_variant='pair_conv'):
+    if backbone == 'convolutional':
+        return initializeCNN(model_variant)
+    elif backbone == 'res_net':
+        return initializeResNet(model_variant)
+    else:
+        raise ValueError("Backbone not implemented")
+
+
+def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation=None):
+    batch_size, c, h, w = dst_batch.size()
+    if model_variant == "the_only_variant":
+        # Extract features
+        pair_features = nets['img_encoder'](
+            src_batch.view(batch_size, c, h, w),
+            dst_batch.view(batch_size, c, h, w).view(batch_size, -1))
+
+        # Get prediction
+        linear_features = nets['fully_connected'](pair_features)
+        reachability_prediction = nets["reachability_regression"](linear_features)
+        position_prediction = nets["position_regression"](linear_features)
+        angle_prediction = nets["angle_regression"](linear_features)
+    elif model_variant == "pair_conv":
+        # Extract features
+        pair_features = nets['img_encoder'](
+            src_batch.view(batch_size, c, h, w),
+            dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
+
+        # Convolutional Layer
+        conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+
+        # Get prediction
+        linear_features = nets['fully_connected'](conv_feature)
+        reachability_prediction = nets["reachability_regression"](linear_features)
+        position_prediction = nets["position_regression"](linear_features)
+        angle_prediction = nets["angle_regression"](linear_features)
+    elif model_variant == "with_dist":
+        # Extract features
+        pair_features = nets['img_encoder'](
+            src_batch.view(batch_size, c, h, w),
+            dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
+
+        # Convolutional Layer
+        conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+
+        # Get prediction
+        linear_features = nets['fully_connected'](torch.cat((batch_transformation, conv_feature), 1))
+        reachability_prediction = nets["reachability_regression"](linear_features)
+        position_prediction = nets["position_regression"](linear_features)
+        angle_prediction = nets["angle_regression"](linear_features)
+    else:
+        print("This variant does not exist")
+        sys.exit(0)
+    return reachability_prediction, position_prediction, angle_prediction
+
+
+def get_prediction_resnet(nets, model_variant, src_batch, dst_batch):
+    batch_size, c, h, w = dst_batch.size()
+    if model_variant == "the_only_variant":
+        raise NotImplementedError
+    elif model_variant == "pair_conv":
+        # Extract features
+        src_features = nets['res_net'](src_batch.view(batch_size, c, h, w))
+        dst_features = nets['res_net'](dst_batch.view(batch_size, c, h, w))
+
+        # Convolutional Layer
+        pair_features = torch.cat([src_features, dst_features], dim=1)
+
+        # Get prediction
+        linear_features = nets['fully_connected'](pair_features)
+        reachability_prediction = nets["reachability_regression"](linear_features)
+        position_prediction = nets["position_regression"](linear_features)
+        angle_prediction = nets["angle_regression"](linear_features)
+    elif model_variant == "with_dist":
+        raise NotImplementedError
+    else:
+        print("This variant does not exist")
+        sys.exit(0)
+    return reachability_prediction, position_prediction, angle_prediction
+
+
+def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation=None):
+    if backbone == 'convolutional':
+        return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation)
+    elif backbone == 'res_net':
+        return get_prediction_resnet(nets, model_variant, src_batch, dst_batch)
 
 
 class AngleRegression(nn.Module):
@@ -70,6 +250,36 @@ class ReachabilityRegression(nn.Module):
         x = self.fc(x)
         x = self.sigmoid(x)
         return x.squeeze(1)
+
+
+class FcWithDropout(nn.Module):
+    def __init__(self, input_dim=512, init_scale=1.0, bias=True, no_weight_init=False):
+        super(FcWithDropout, self).__init__()
+
+        self.fc1 = nn.Linear(input_dim, input_dim, bias=bias)
+        self.dropout1 = nn.Dropout(inplace=True)
+        self.fc2 = nn.Linear(input_dim, input_dim // 4, bias=bias)
+        self.dropout2 = nn.Dropout(inplace=True)
+        self.fc3 = nn.Linear(input_dim // 4, input_dim // 4, bias=bias)
+        self.fc4 = nn.Linear(input_dim // 4, 4, bias=bias)
+
+        if not no_weight_init:
+            for layer in (self.fc1, self.fc2, self.fc3):
+                nn.init.orthogonal_(layer.weight, init_scale)
+                if hasattr(layer, 'bias') and layer.bias is not None:
+                    with torch.no_grad():
+                        layer.bias.zero_()
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.dropout1(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.dropout2(x)
+        x = self.fc3(x)
+        x = self.fc4(x)
+        return x
 
 
 class FCLayers(nn.Module):

@@ -117,7 +117,7 @@ class PlaceCellNetwork:
         from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
         self.re_type = re_type
-        filename = "trained_model_pair_conv.30"
+        filename = "trained_model_new.50"
         filepath = os.path.join(get_path_re(), filename)
 
         if not self.re_type == "firing":

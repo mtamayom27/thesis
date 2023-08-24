@@ -115,8 +115,8 @@ if __name__ == "__main__":
     - connection: ("all","instant"), ("radius", "delayed")
     """
 
-    creation_re_type = "distance"
-    connection_re_type = "distance"
+    creation_re_type = "firing"
+    connection_re_type = "neural_network"
     connection = ("radius", "delayed")
 
     exploration_path("Savinov_val3", creation_re_type, connection_re_type, connection)
