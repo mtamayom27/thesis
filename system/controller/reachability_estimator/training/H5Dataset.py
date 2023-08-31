@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-from system.controller.reachability_estimator.training.utils import img_reshape
+from system.controller.reachability_estimator.training.utils import img_reshape, spikings_reshape
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
@@ -31,11 +31,12 @@ class H5Dataset(torch.utils.data.Dataset):
         transformation  -- transformation between source position and goal position
     """
 
-    def __init__(self, path, external_link=False):
+    def __init__(self, path, external_link=False, with_grid_cell_spikings=False):
         self.file_path = path
         self.dataset = None
         self.externalLink = external_link
         self.dataset = h5py.File(self.file_path, 'r')
+        self.with_grid_cell_spikings = with_grid_cell_spikings
 
         if external_link:
             self.dataset_len = 0
@@ -44,7 +45,7 @@ class H5Dataset(torch.utils.data.Dataset):
             for k in list(self.dataset.keys()):
                 self.dataset_len += len(self.dataset[k])
                 self.cumsum.append(len(self.dataset[k]) + self.cumsum[-1])
-                self.keys += list(self.dataset[k][:])
+                self.keys += list(self.dataset[k])
         else:
             self.dataset_len = len(list(self.dataset))
             self.keys = list(self.dataset)
@@ -124,6 +125,25 @@ class H5Dataset(torch.utils.data.Dataset):
         print("percentage reached/failed", reach.count(1.0) / len(reach))
 
 
+class H5DatasetWithSpikings(H5Dataset):
+    def __init__(self, path, external_link=False):
+        super().__init__(path, external_link)
+
+    def __getitem__(self, index):
+        src_img, dst_img, \
+            reachability, start_position, goal_position, \
+            start_orientation, goal_orientation,\
+            src_spikings, dst_spikings = self.sample(index)[0]
+
+        src_spikings = spikings_reshape(src_spikings)
+        dst_spikings = spikings_reshape(dst_spikings)
+        src_img = img_reshape(src_img)
+        dst_img = img_reshape(dst_img)
+
+        return src_img, dst_img, torch.tensor(reachability), \
+            torch.tensor(np.append(goal_position, goal_orientation) - np.append(start_position, start_orientation)), \
+            src_spikings, dst_spikings
+
 def create_balanced_datasets(new_file, filename, filepath, length):
     """ Combine two hd5 files into one. Keys need to be different
 
@@ -182,15 +202,22 @@ def combine_datasets(new_file, filenames, filepath):
         myfile[str(i)] = h5py.ExternalLink(fn, filepath)
 
 
+def get_path():
+    """ returns path to data storage folder """
+    dirname = os.path.join(os.path.dirname(__file__), "..")
+    return dirname
+
+
 if __name__ == '__main__':
     """Test H5 reachability datasets by displaying their content."""
-    path = "/mnt/hgfs/Share/data/reachability"
-    new_file = os.path.join(path, "reachability_fifty_sampels.hd5")
+    path = get_path()
+    path = os.path.join(path, "data/reachability")
+    new_file = os.path.join(path, "reachability_combined_dataset.hd5")
 
-    # filenames = ["reachability_train1.hd5","reachability_train2.hd5","reachability_train3.hd5","reachability_train4.hd5","reachability_train5.hd5","reachability_dataset_345678.hd5","reachability_dataset_234567.hd5"]
-    # filenames = [os.path.join(path,fn) for fn in filenames]
-    # combine_datasets(new_file,filenames,"/")
+    filenames = ["long_trajectories.hd5", "reachability_dataset.hd5"]
+    filenames = [os.path.join(path, fn) for fn in filenames]
+    combine_datasets(new_file, filenames, "/")
 
-    dataset = H5Dataset(new_file, external_link=False)
-    dataset.display_sample(0)
-    dataset.display_dataset()
+    # dataset = H5Dataset(new_file, external_link=False)
+    # dataset.display_sample(0)
+    # dataset.display_dataset()

@@ -13,6 +13,7 @@ import torch
 import torchvision
 from torch import nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 def initializeCNN(model_variant='pair_conv'):
@@ -23,6 +24,8 @@ def initializeCNN(model_variant='pair_conv'):
         input_dim = 512
     elif model_variant == "with_dist":
         input_dim = 512 + 3
+    elif model_variant == 'spikings':
+        input_dim = 512 + 8
     else:
         input_dim = 5120
 
@@ -61,18 +64,21 @@ def initializeCNN(model_variant='pair_conv'):
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
+
+    if model_variant == 'spikings':
+        net = SiameseNetwork()
+        nets["spikings_encoder"] = {
+            'net': net,
+            'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+        }
+
     return nets
 
 
 def initializeResNet(model_variant='pair_conv'):
     # Defining the NN and optimizers
     nets = {}
-    if model_variant == "pair_conv":
-        input_dim = 512
-    elif model_variant == "with_dist":
-        input_dim = 512 + 3
-    else:
-        input_dim = 5120
+    input_dim = 64
 
     net = AngleRegression(init_scale=1.0, no_weight_init=False)
     nets["angle_regression"] = {
@@ -92,16 +98,21 @@ def initializeResNet(model_variant='pair_conv'):
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
 
-    net = FcWithDropout(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
+    net = FcWithDropout(init_scale=1.0, input_dim=input_dim * 2, no_weight_init=False)
     nets["fully_connected"] = {
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
 
-    net = torchvision.models.resnext101_64x4d(pretrained=True)
+    net = torchvision.models.resnet18(pretrained=True, num_classes=input_dim)
+    weight1 = net.conv1.weight.clone()
+    new_first_layer = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False).requires_grad_()
+    new_first_layer.weight[:, :3, :, :].data[...] = Variable(weight1, requires_grad=True)
+    net.conv1 = new_first_layer
+
     nets["res_net"] = {
         'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+        'opt': None
     }
     return nets
 
@@ -115,7 +126,7 @@ def initialize_network(backbone='convolutional', model_variant='pair_conv'):
         raise ValueError("Backbone not implemented")
 
 
-def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation=None):
+def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings):
     batch_size, c, h, w = dst_batch.size()
     if model_variant == "the_only_variant":
         # Extract features
@@ -142,6 +153,22 @@ def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batc
         reachability_prediction = nets["reachability_regression"](linear_features)
         position_prediction = nets["position_regression"](linear_features)
         angle_prediction = nets["angle_regression"](linear_features)
+    elif model_variant == 'spikings':
+        # Extract features
+        pair_features = nets['img_encoder'](
+            src_batch.view(batch_size, c, h, w),
+            dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
+
+        spikings_features = nets['spikings_encoder'](batch_src_spikings, batch_dst_spikings)
+
+        # Convolutional Layer
+        conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+
+        # Get prediction
+        linear_features = nets['fully_connected'](torch.cat((conv_feature, spikings_features), 1))
+        reachability_prediction = nets["reachability_regression"](linear_features)
+        position_prediction = nets["position_regression"](linear_features)
+        angle_prediction = nets["angle_regression"](linear_features)
     elif model_variant == "with_dist":
         # Extract features
         pair_features = nets['img_encoder'](
@@ -158,11 +185,11 @@ def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batc
         angle_prediction = nets["angle_regression"](linear_features)
     else:
         print("This variant does not exist")
-        sys.exit(0)
+        return
     return reachability_prediction, position_prediction, angle_prediction
 
 
-def get_prediction_resnet(nets, model_variant, src_batch, dst_batch):
+def get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings):
     batch_size, c, h, w = dst_batch.size()
     if model_variant == "the_only_variant":
         raise NotImplementedError
@@ -182,16 +209,15 @@ def get_prediction_resnet(nets, model_variant, src_batch, dst_batch):
     elif model_variant == "with_dist":
         raise NotImplementedError
     else:
-        print("This variant does not exist")
-        sys.exit(0)
+        raise ValueError("This variant does not exist")
     return reachability_prediction, position_prediction, angle_prediction
 
 
-def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation=None):
+def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation=None, batch_src_spikings=None, batch_dst_spikings=None):
     if backbone == 'convolutional':
-        return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation)
+        return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings)
     elif backbone == 'res_net':
-        return get_prediction_resnet(nets, model_variant, src_batch, dst_batch)
+        return get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings)
 
 
 class AngleRegression(nn.Module):
@@ -253,13 +279,13 @@ class ReachabilityRegression(nn.Module):
 
 
 class FcWithDropout(nn.Module):
-    def __init__(self, input_dim=512, init_scale=1.0, bias=True, no_weight_init=False):
+    def __init__(self, input_dim=2000, init_scale=1.0, bias=True, no_weight_init=False):
         super(FcWithDropout, self).__init__()
 
         self.fc1 = nn.Linear(input_dim, input_dim, bias=bias)
-        self.dropout1 = nn.Dropout(inplace=True)
+        self.dropout1 = nn.Dropout()
         self.fc2 = nn.Linear(input_dim, input_dim // 4, bias=bias)
-        self.dropout2 = nn.Dropout(inplace=True)
+        self.dropout2 = nn.Dropout()
         self.fc3 = nn.Linear(input_dim // 4, input_dim // 4, bias=bias)
         self.fc4 = nn.Linear(input_dim // 4, 4, bias=bias)
 
@@ -332,7 +358,38 @@ class ImagePairEncoderV2(nn.Module):
         x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))
         return x.view(x.size(0), -1)
-    
+
+
+class SiameseNetwork(nn.Module):
+    def __init__(self):
+        super(SiameseNetwork, self).__init__()
+
+        self.conv_base = nn.Sequential(
+            nn.Conv2d(6, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(32 * 10 * 10, 128),
+            nn.ReLU(),
+            nn.Linear(128, 8)
+        )
+
+    def forward_one(self, x):
+        x = self.conv_base(x)
+        x = x.view(x.size()[0], -1)
+        x = self.fc(x)
+        return x
+
+    def forward(self, input1, input2):
+        embed1 = self.forward_one(input1)
+        embed2 = self.forward_one(input2)
+        return embed1 - embed2
+
 
 class ConvEncoder(nn.Module):
     def __init__(self, input_dim=512, output_dim=512, kernel_size=1, init_scale=1.0,

@@ -62,15 +62,7 @@ class ReachabilityDataset(data.Dataset):
     For details see original source code: https://github.com/xymeng/rmp_nav
     '''
 
-    def __init__(self, hd5_files, distance_min, distance_max, range_min, range_max, frame_interval):
-
-        self.distance_min = distance_min
-        self.distance_max = distance_max
-        self.range_min = range_min
-        self.range_max = range_max
-
-        self.frame_interval = frame_interval
-
+    def __init__(self, hd5_files):
         self.hd5_files = sorted(list(hd5_files))
 
         # open hd5 files
@@ -199,53 +191,41 @@ class ReachabilityDataset(data.Dataset):
         returns:
         name of map, source sample, destination sample
         """
-        timerange = self.rng.uniform(self.range_min, self.range_max)
-        distance = self.rng.uniform(self.distance_min, self.distance_max)
-        inc = 1
 
+        # Get a good pair of samples
+        src_dataset_idx, src_traj_id, src_idx = self._locate_sample(idx)
+
+        src_traj = self.fds[src_dataset_idx][src_traj_id]  # todo self.map_names[0] like in layout?
+        map_name = self.fds[src_dataset_idx].attrs['map_type']
+
+        src_sample = src_traj[src_idx]
+        src_pos = src_sample[0]
+
+        p = self.rng.uniform()
+        x = 0
         while True:
-            # Get a good pair of samples
-            src_dataset_idx, src_traj_id, src_idx = self._locate_sample(idx)
-
-            src_traj = self.fds[src_dataset_idx][src_traj_id] # todo self.map_names[0] like in layout?
-            map_name = self.fds[src_dataset_idx].attrs['map_type']
-
-            src_sample = src_traj[src_idx]
-            src_pos = src_sample[0]
-
-            dst_idx = src_idx + inc
-            flag = False
-            while 0 <= dst_idx < len(src_traj):
-                dst_sample = src_traj[dst_idx]
-                dst_pos = dst_sample[0]
-                x, y = dst_pos - src_pos
-                # If the samples are far enough away from each other both spatially and timerange wise
-                # a valid sample has been found.
-                if dst_idx - src_idx > timerange and x ** 2 + y ** 2 > distance ** 2:
-                    # return path_length
-                    goal_pos = list(dst_pos)
-                    src_pos = list(src_pos)
-                    waypoints = self.layout.find_path(src_pos, goal_pos)
-                    # no path found between source and goal -> skip this sample
-                    if not waypoints:
-                        print_debug("No path found.")
-                        break
-                    path_l = path_length(waypoints)
-                    flag = True
-                    break
-
-                dst_idx += inc
-
-            if flag and 0 <= dst_idx < len(src_traj):
-                # Found valid dst_sample
+            x += 1
+            dst_idx = min(0, max(len(src_traj) - 1, src_idx + self.rng.randint(-5, 5)))
+            # if p <= 0.5:
+            #     dst_idx = min(0, max(len(src_traj) - 1, src_idx + self.rng.randint(-20, 20)))
+            # else:
+            #     dst_idx = self.rng.randint(0, len(src_traj))
+            if dst_idx != src_idx:
                 break
-
-            # select another idx if this one doesn't work
-            # TODO Johanna: Future Work: Sometimes the data generation gets livelocked.
-            #                   This should fix it but could not be tested extensively.
-            idx = (idx + self.rng.randint(1000)) % len(self)
+            if x >= 20:
+                return None
 
         dst_sample = src_traj[dst_idx]
+        dst_pos = dst_sample[0]
+
+        # return path_length
+        goal_pos = list(dst_pos)
+        src_pos = list(src_pos)
+        waypoints = self.layout.find_path(src_pos, goal_pos)
+        if waypoints is None:
+            return None
+        path_l = path_length(waypoints)
+
         return map_name, src_sample, dst_sample, path_l
 
     def _draw_sample_diff_traj(self, idx):
@@ -297,7 +277,9 @@ class ReachabilityDataset(data.Dataset):
         start and goal position
         first decoded goal vector
         src img after turn
-        distance between goal and agent'''
+        distance between goal and agent
+        src grid cell spikings
+        dst grid cell spikings'''
         self._init_once(idx)
 
         # choose with probability p from same/different trajectory
@@ -307,7 +289,11 @@ class ReachabilityDataset(data.Dataset):
         # if p < self.sample_diff_traj_prob:
         #     map_name, src_sample, dst_sample, path_l = self._draw_sample_diff_traj(idx)
         # else:
-        map_name, src_sample, dst_sample, path_l = self._draw_sample_same_traj(idx)
+        pair = self._draw_sample_same_traj(idx)
+        while pair is None:
+            idx = (idx + self.rng.randint(1000)) % len(self)
+            pair = self._draw_sample_same_traj(idx)
+        map_name, src_sample, dst_sample, path_l = pair
 
         src_img = self.get_camera_view(map_name, src_sample)[2]
         dst_img = self.get_camera_view(map_name, dst_sample)[2]
@@ -320,10 +306,10 @@ class ReachabilityDataset(data.Dataset):
         print(f"Reachability computed {r}")
 
         # image transformation
-        return src_img.flatten(), dst_img.flatten(), r, [src_sample[0], dst_sample[0]], [src_sample[1], dst_sample[1]]
+        return src_img.flatten(), dst_img.flatten(), r, [src_sample[0], dst_sample[0]], [src_sample[1], dst_sample[1]], src_sample[2], dst_sample[2]
 
 
-def create_and_save_reachability_samples(filename, nr_samples, traj_file):
+def create_and_save_reachability_samples(filename, nr_samples, traj_file, with_grid_cell_spikings=False):
     """ Create reachability samples.
     
     arguments:
@@ -337,35 +323,42 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
     filepath = os.path.realpath(directory)
     f = h5py.File(filepath + ".hd5", 'a')
 
-    distance_min = 0
-    distance_max = 1
-    range_min = 0
-    range_max = 10
-    frame_interval = 3
-
     # Trajectories
     dirname = get_path()
     dirname = os.path.join(dirname, "data/trajectories")
     directory = os.path.join(dirname, traj_file)
     filename = os.path.realpath(directory)
 
-    rd = ReachabilityDataset([filename], distance_min, distance_max, range_min, range_max, frame_interval)
+    rd = ReachabilityDataset([filename])
 
     env_model = rd.map_names[0]
     print_debug("env_model: ", env_model)
     f.attrs.create('map_type', env_model)
 
-    dtype = np.dtype([
-        ('start_observation', (np.int32, 16384)), # 64 * 64 * 4
-        ('goal_observation', (np.int32, 16384)),
-        ('reached', np.float32),
-        ('start', (np.float32, 2)),  # x, y
-        ('goal', (np.float32, 2)),  # x, y
-        ('start_orientation', np.float32),  # theta
-        ('goal_orientation', np.float32)  # theta
-    ])
+    if with_grid_cell_spikings:
+        dtype = np.dtype([
+            ('start_observation', (np.int32, 16384)),  # 64 * 64 * 4
+            ('goal_observation', (np.int32, 16384)),
+            ('reached', np.float32),
+            ('start', (np.float32, 2)),  # x, y
+            ('goal', (np.float32, 2)),  # x, y
+            ('start_orientation', np.float32),  # theta
+            ('goal_orientation', np.float32),  # theta
+            ('start_spikings', (np.float32, 9600)),  # 40 * 40 * 6
+            ('goal_spikings', (np.float32, 9600))  # 40 * 40 * 6
+        ])
+    else:
+        dtype = np.dtype([
+            ('start_observation', (np.int32, 16384)),  # 64 * 64 * 4
+            ('goal_observation', (np.int32, 16384)),
+            ('reached', np.float32),
+            ('start', (np.float32, 2)),  # x, y
+            ('goal', (np.float32, 2)),  # x, y
+            ('start_orientation', np.float32),  # theta
+            ('goal_orientation', np.float32)  # theta
+        ])
 
-    seed = 555554
+    seed = 555555
     rng_sampleid = np.random.RandomState(seed)
 
     i = 0
@@ -387,7 +380,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
         if not item:
             print(f'Failed to get item {random_index}')
             continue
-        src_img, dst_img, r, s, orientations = item
+        src_img, dst_img, r, s, orientations, src_spikings, dst_spikings = item
 
         sample = (
             src_img,
@@ -402,6 +395,8 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file):
             # img_after_turn[2].flatten(), #not used
             # dist #not used
         )
+        if with_grid_cell_spikings:
+            sample = (*sample, src_spikings, dst_spikings)
 
         dset = f.create_dataset(
             dset_name,
@@ -427,7 +422,6 @@ def display_samples(filename, imageplot=False):
     env_model = hf.attrs["map_type"]
 
     print("Number of samples: " + str(len(hf.keys())))
-    return
     reached = 0
     count = len(hf.keys())
     reach = []
@@ -477,7 +471,7 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        # create_and_save_reachability_samples("long_trajectories", 180063, "long_trajectories.hd5")
+        create_and_save_reachability_samples("dataset_spikings", 1000, "long_trajectories.hd5", with_grid_cell_spikings=True)
         display_samples("long_trajectories.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")

@@ -182,7 +182,7 @@ class GridCellNetwork:
                 self.gc_modules.append(gc)
                 print("Loaded GC module with gm", gc.gm)
 
-            self.load_initialized_network("s_vectors_initialized.npy",gc_name = gc_name)
+            self.load_initialized_network("s_vectors_initialized.npy", gc_name=gc_name)
 
         self.set_current_as_target_state()  # by default home-base is set as goal vector
 
@@ -211,7 +211,7 @@ class GridCellNetwork:
 
     def load_initialized_network(self, filename,gc_name = None):
         filepath = self.get_path(gc_name)
-        s_vectors = np.load(filepath +"/"+ filename)
+        s_vectors = np.load(filepath + "/" + filename)
         for m, gc in enumerate(self.gc_modules):
             gc.s = s_vectors[m]
         # plot_grid_cell_modules(self.gc_modules, "final")

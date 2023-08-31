@@ -10,7 +10,6 @@
 import torch
 import numpy as np
 import tabulate
-import yaml
 
 import sys
 import os
@@ -102,7 +101,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
 
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
-    def __init__(self, device='cpu', debug=True, weights_file=None):
+    def __init__(self, device='cpu', debug=True, weights_file=None, with_spikings=False):
         """ Creates a reachability estimator that judges reachability
             between two locations based on its type
 
@@ -117,6 +116,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         """
         super().__init__(threshold_same=0.6, threshold_reachable=0.5, device=device, debug=debug)
 
+        self.with_spikings = with_spikings
         state_dict = torch.load(weights_file, map_location='cpu')
         self.print_debug('loaded %s' % weights_file)
         global_args = state_dict.get('global_args', {})
@@ -137,10 +137,13 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Return reachability estimate from start to goal using the re_type """
+        if self.with_spikings:
+            return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]],
+                                                   [start.gc_connections], [goal.gc_connections], batch_size=1)[0]
         return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]], batch_size=1)[0]
 
-    def predict_reachability_batch(self, obs, goals, batch_size=64):
-        def get_prediction(src_batch, dst_batch):
+    def predict_reachability_batch(self, starts, goals, src_spikings=None, goal_spikings=None, batch_size=64):
+        def get_prediction(src_batch, dst_batch, src_spikings=None, goal_spikings=None):
             with torch.no_grad():
                 # as_tensor() is very slow when passing in a list of np arrays, but is 30X faster
                 # when wrapping the list with np.array().
@@ -158,17 +161,22 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                         dst_batch = torch.stack(dst_batch)
                 else:
                     raise RuntimeError('Unsupported datatype: %s' % type(dst_batch[0]))
+                if self.with_spikings:
+                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(), torch.tensor(dst_batch).float(), torch.tensor(src_spikings).float(), torch.tensor(goal_spikings).float())
 
-                return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(), torch.tensor(dst_batch).float())
+                return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(),
+                                       torch.tensor(dst_batch).float())
 
-        assert len(obs) == len(goals)
-        n = len(obs)
+        assert len(starts) == len(goals)
+        n = len(starts)
 
         results = []
         n_remaining = n
         while n_remaining > 0:
-            results.append(get_prediction(obs[n - n_remaining: n - n_remaining + batch_size],
-                                  goals[n - n_remaining: n - n_remaining + batch_size])[0])
+            results.append(get_prediction(starts[n - n_remaining: n - n_remaining + batch_size],
+                                  goals[n - n_remaining: n - n_remaining + batch_size],
+                                  src_spikings[n - n_remaining: n - n_remaining + batch_size],
+                                  goal_spikings[n - n_remaining: n - n_remaining + batch_size])[0])
             n_remaining -= batch_size
         return torch.cat(results, dim=0).data.cpu().numpy()
 

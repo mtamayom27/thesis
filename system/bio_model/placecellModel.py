@@ -105,7 +105,7 @@ def compute_weights(s_vectors):
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
 
-    def __init__(self, from_data=False, re_type="distance", ):
+    def __init__(self, from_data=False, re_type="distance", weights_file=None):
         """ Place Cell Network  of the environment. 
         
         arguments:
@@ -117,8 +117,7 @@ class PlaceCellNetwork:
         from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
         self.re_type = re_type
-        filename = "trained_model_new.50"
-        filepath = os.path.join(get_path_re(), filename)
+        filepath = os.path.join(get_path_re(), weights_file)
 
         if not self.re_type == "firing":
             self.reach_estimator = init_reachability_estimator(re_type, weights_file=filepath)
@@ -131,7 +130,7 @@ class PlaceCellNetwork:
         elif self.re_type == "simulation":
             self.creation_threshold = 1.0
         elif self.re_type == "firing":
-            self.creation_threshold = 0.90
+            self.creation_threshold = 0.93
         elif self.re_type == "view_overlap":
             self.creation_threshold = 0.4
 

@@ -8,6 +8,7 @@
 *
 ***************************************************************************************
 '''
+import time
 import networkx as nx
 import numpy as np
 
@@ -42,7 +43,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -52,8 +53,7 @@ class CognitiveMapInterface:
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
 
-        weights_filename = "trained_model_new.50"
-        weights_filepath = os.path.join(get_path_re(), weights_filename)
+        weights_filepath = os.path.join(get_path_re(), weights_file)
         self.reach_estimator = init_reachability_estimator(re_type, weights_file=weights_filepath, env_model=env_model,
                                                            debug=debug)
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
@@ -136,7 +136,7 @@ class CognitiveMapInterface:
 
 class CognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", mode="exploration", connection=("all", "delayed"),
-                 env_model=None):
+                 env_model=None, weights_file=None):
         """ Cognitive map representation of the environment. 
         
         arguments:
@@ -152,7 +152,7 @@ class CognitiveMap(CognitiveMapInterface):
                                         or every node is connected to other nodes as soon as it is created
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
-        super().__init__(from_data, re_type, env_model)
+        super().__init__(from_data, re_type, env_model, weights_file)
 
         self.active_threshold = 0.85
 
@@ -339,8 +339,8 @@ def shuffle_heuristic(nodes):
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
-    def __init__(self, from_data=False, re_type="distance", env_model=None):
-        super().__init__(from_data, re_type, env_model)
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None):
+        super().__init__(from_data, re_type, env_model, weights_file)
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
@@ -364,10 +364,11 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
     def construct_graph(self):
+        start_time = time.time()
         while True:
-            if len(self.trajectory_nodes) == 0:
+            if time.time() - start_time > 4 * 60 * 60:  # if it's taking too long
                 break
-
+            print(f"Length of trajectory_nodes = {len(self.trajectory_nodes)}")
             self.add_node_to_map(self.trajectory_nodes.pop(0))
 
             updated = True
@@ -390,9 +391,10 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         for node in self.node_network.nodes:
             if self.node_network.degree(node) == 0:
                 self.trajectory_nodes.append(node)
-        for node in self.trajectory_nodes:
-            self.node_network.remove_node(node)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
+        for node in self.trajectory_nodes:
+            if node in self.node_network.nodes:
+                self.node_network.remove_node(node)
 
     def calculate_and_add_edge(self, node, pc, reachability_weight):
         # todo make usable for other re apart from distance
@@ -467,8 +469,9 @@ if __name__ == "__main__":
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     connection = ("radius", "delayed")
+    weights_filename = "trained_model_new.50"
     # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
-    cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model="Savinov_val3")
+    cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model="Savinov_val3", weights_file=weights_filename)
 
     # Update and Save the cognitive map
     cm.postprocess()
@@ -484,7 +487,7 @@ if __name__ == "__main__":
         from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
         from system.controller.local_controller.local_navigation import setup_gc_network
 
-        pc_network = PlaceCellNetwork(from_data=True)
+        pc_network = PlaceCellNetwork(from_data=True, weights_file=weights_filename)
         cognitive_map = CognitiveMap(from_data=True)
         gc_network = setup_gc_network(1e-2)
 

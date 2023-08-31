@@ -90,7 +90,7 @@ def write_kwargs_to_file(file_path='data/history.txt', **kwargs):
 
 
 class TrajectoryFollower(object):
-    def __init__(self, env_model, creation_type, connection_type, connection):
+    def __init__(self, env_model, creation_type, connection_type, weights_file=None):
         """ Handles interactions between local controller and cognitive_map to navigate the environment.
 
         arguments:
@@ -99,9 +99,10 @@ class TrajectoryFollower(object):
         """
 
         # setup place cell network, cognitive map and grid cell network (from data)
-        self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type)
+        self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, weights_file=weights_file)
+
         # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
-        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model)
+        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
@@ -219,12 +220,12 @@ class TrajectoryFollower(object):
         pos = nx.get_node_attributes(G, 'pos')
         nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=60)
         nx.draw_networkx_edges(G, pos, edge_color='#CCCCC6')
-
-        # draw_path
-        path_edges = list(zip(path, path[1:]))
-        nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
-        G = G.to_undirected()
-        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
+        if path is not None:
+            # draw_path
+            path_edges = list(zip(path, path[1:]))
+            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
+            G = G.to_undirected()
+            nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
         plt.axis("equal")
         plt.show()
 
@@ -233,12 +234,12 @@ if __name__ == "__main__":
     """ Test navigation through the maze """
 
     # see cognitivemap.py
-    creation_re_type = "distance"
-    connection_re_type = "distance"
-    connection = ("all", "delayed")
-
+    creation_re_type = "firing"
+    connection_re_type = "neural_network"
+    weights_file = "trained_model_new.50"
     # setup
-    tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, connection)
+
+    tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file)
     # tj.navigation(start=97, goal=14)
     # tj.navigation(start=87, goal=100)
     # tj.navigation(start=111, goal=119)

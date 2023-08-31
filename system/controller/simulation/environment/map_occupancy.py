@@ -246,7 +246,7 @@ class Map(object):
         waypoints = a_star(self.path_map, start_coord, goal_coord, soft_obstacle_scale=1.0)
 
         if waypoints is None:
-            return None
+            return [(start_pos, goal_pos)]
 
         res = []
         for x, y in waypoints:

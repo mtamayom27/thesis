@@ -22,7 +22,7 @@ from system.controller.reachability_estimator.networks import initialize_network
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
-from system.controller.reachability_estimator.training.H5Dataset import H5Dataset
+from system.controller.reachability_estimator.training.H5Dataset import H5Dataset, H5DatasetWithSpikings
 from system.controller.reachability_estimator.training.utils import save_model, load_model
 
 
@@ -125,7 +125,7 @@ def run_test_model(dataset):
     writer.add_scalar("fscore/Testing", test_f1, 1)
 
 
-def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets, position_loss_weight = 0.6, angle_loss_weight = 0.3):
+def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets, backbone, position_loss_weight = 0.6, angle_loss_weight = 0.3):
     """ Log accuracy, precision, recall and f1score for dataset in loader."""
     with torch.no_grad():
         log_loss = 0
@@ -138,7 +138,14 @@ def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets, 
         recall = BinaryRecall()
         f1 = BinaryF1Score()
         for idx, item in enumerate(loader):
-            batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
+            if model_variant == 'spikings':
+                batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation, batch_src_spikings, batch_dst_spikings = item
+                batch_src_spikings = batch_src_spikings.to(device=train_device, non_blocking=True).float()
+                batch_dst_spikings = batch_dst_spikings.to(device=train_device, non_blocking=True).float()
+            else:
+                batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
+                batch_src_spikings = None
+                batch_dst_spikings = None
             # Get predictions
             src_img = batch_src_imgs.to(device=train_device, non_blocking=True)
             dst_imgs = batch_dst_imgs.to(device=train_device, non_blocking=True)
@@ -149,49 +156,8 @@ def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets, 
 
             src_batch = src_img.float()
             dst_batch = dst_imgs.float()
-            batch_size, c, h, w = dst_batch.size()
-
-            if model_variant == "the_only_variant":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w).view(batch_size, 1, -1))
-
-                # Get prediction
-                linear_features = nets['fully_connected'](pair_features)
-                reachability_prediction = nets["reachability_regression"](linear_features)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features)
-            elif model_variant == "pair_conv":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
-
-                # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
-
-                # Get prediction
-                linear_features = nets['fully_connected'](conv_feature)
-                reachability_prediction = nets["reachability_regression"](linear_features)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features)
-
-            elif model_variant == "with_dist":
-                # Extract features
-                pair_features = nets['img_encoder'](
-                    src_batch.view(batch_size, c, h, w),
-                    dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
-
-                # Convolutional Layer
-                conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
-
-                # Get prediction
-                # add the decoded goal vector
-                linear_features = nets['fully_connected'](torch.cat((batch_transformation, conv_feature), 1))
-                reachability_prediction = nets["reachability_regression"](linear_features).squeeze(1)
-                position_prediction = nets["position_regression"](linear_features)
-                angle_prediction = nets["angle_regression"](linear_features).squeeze(1)
+            prediction = get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings)
+            reachability_prediction, position_prediction, angle_prediction = prediction
 
             loss_reachability = torch.nn.functional.binary_cross_entropy(reachability_prediction, r,
                                                                          reduction='none')
@@ -240,7 +206,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
         model_variant,
         position_loss_weight,
         angle_loss_weight,
-        backbone
+        backbone,
+        with_grid_cell_spikings
     ) = [global_args[_] for _ in ['model_file',
                                   'resume',
                                   'batch_size',
@@ -255,7 +222,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                                   'model_variant',
                                   'position_loss_weight',
                                   'angle_loss_weight',
-                                  'backbone'
+                                  'backbone',
+                                  'with_grid_cell_spikings'
     ]]
 
     # For Tensorboard: log the runs
@@ -308,7 +276,14 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
         last_log_time = time.time()
 
         for idx, item in enumerate(loader):
-            batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
+            if with_grid_cell_spikings:
+                batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation, batch_src_spikings, batch_dst_spikings = item
+                src_spikings_batch = batch_src_spikings.to(device=train_device, non_blocking=True).float()
+                dst_spikings_batch = batch_dst_spikings.to(device=train_device, non_blocking=True).float()
+            else:
+                batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
+                src_spikings_batch = None
+                dst_spikings_batch = None
             # Zeros optimizer gradient
             for _, opt in net_opts.items():
                 opt.zero_grad()
@@ -317,6 +292,7 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
             src_img = batch_src_imgs.to(device=train_device, non_blocking=True)
             dst_img = batch_dst_imgs.to(device=train_device, non_blocking=True)
             r = batch_reachability.to(device=train_device, non_blocking=True)
+            r = torch.clamp(r, 0.0, 1.0)
             transformation = batch_transformation.to(device=train_device, non_blocking=True)
             position = transformation[:, 0:2]
             angle = transformation[:, -1]
@@ -324,7 +300,8 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
             src_batch = src_img.float()
             dst_batch = dst_img.float()
 
-            prediction = get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation)
+            prediction = get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation, src_spikings_batch, dst_spikings_batch)
+
             reachability_prediction, position_prediction, angle_prediction = prediction
 
             # Loss
@@ -371,10 +348,10 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
                                   num_workers=n_dataset_worker)
 
         # log performance on the validation set
-        tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets, position_loss_weight, angle_loss_weight)
+        tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets, backbone, position_loss_weight, angle_loss_weight)
 
 
-def validate_func(model_file, nets, net_opts, dataset, batch_size, train_device, model_variant, position_loss_weight, angle_loss_weight):
+def validate_func(model_file, nets, net_opts, dataset, backbone, batch_size, train_device, model_variant, position_loss_weight, angle_loss_weight):
     epoch = _load_weights(model_file, nets, net_opts)
     print('loaded saved state. epoch: %d' % epoch)
     train_size = int(0.8 * len(dataset))
@@ -388,7 +365,7 @@ def validate_func(model_file, nets, net_opts, dataset, batch_size, train_device,
                               num_workers=0)
 
     # log performance on the validation set
-    tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets, position_loss_weight,
+    tensor_log("Validation", valid_loader, train_device, model_variant, writer, epoch, nets, backbone, position_loss_weight,
                angle_loss_weight)
     writer.flush()
 
@@ -405,27 +382,29 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_model_res_net"),
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_spikings"),
         'resume': False,
         'batch_size': 64,
-        'samples_per_epoch': 10000,
-        'max_epochs': 55,
+        'samples_per_epoch': 1000,
+        'max_epochs': 30,
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
         'n_dataset_worker': 0,
         'log_interval': 20,
         'save_interval': 5,
-        'model_variant': "pair_conv",  # "pair_conv",#"with_dist",#"the_only_variant",
+        'model_variant': "spikings",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu",
         'position_loss_weight': 0.06,
         'angle_loss_weight': 0.03,
-        'backbone': 'convolutional'  # convolutional, res_net
+        'backbone': 'convolutional',  # convolutional, res_net
+        'with_grid_cell_spikings': True,
+        'external_link': False
     }
 
     # Defining the NN and optimizers
     nets = initialize_network(global_args['backbone'], global_args['model_variant'])
 
-    testing = True
+    testing = False
     validate = False
 
     if validate:
@@ -438,6 +417,7 @@ if __name__ == '__main__':
                  {name: spec['net'] for name, spec in nets.items()},
                  {name: spec['opt'] for name, spec in nets.items()},
                  H5Dataset(filepath),
+                 global_args['backbone'],
                  global_args['batch_size'],
                  global_args['train_device'],
                  global_args['model_variant'],
@@ -456,21 +436,24 @@ if __name__ == '__main__':
         run_test_model(dataset)
     else:
         # Training
-        hd5file = "long_trajectories.hd5"
+        hd5file = "dataset_spikings.hd5"
 
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")
         filepath = os.path.join(directory, hd5file)
         filepath = os.path.realpath(filepath)
 
-        dataset = H5Dataset(filepath, external_link=False)
+        if global_args['with_grid_cell_spikings']:
+            dataset = H5DatasetWithSpikings(filepath, global_args['external_link'])
+        else:
+            dataset = H5Dataset(filepath, global_args['external_link'])
 
         train_multiframedst(
             nets={
                 name: spec['net'] for name, spec in nets.items()
             },
             net_opts={
-                name: spec['opt'] for name, spec in nets.items()
+                name: spec['opt'] for name, spec in nets.items() if spec['opt'] is not None
             },
             dataset=dataset,
             global_args=global_args)
