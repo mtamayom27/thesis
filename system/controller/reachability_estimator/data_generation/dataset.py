@@ -205,11 +205,10 @@ class ReachabilityDataset(data.Dataset):
         x = 0
         while True:
             x += 1
-            dst_idx = min(0, max(len(src_traj) - 1, src_idx + self.rng.randint(-5, 5)))
-            # if p <= 0.5:
-            #     dst_idx = min(0, max(len(src_traj) - 1, src_idx + self.rng.randint(-20, 20)))
-            # else:
-            #     dst_idx = self.rng.randint(0, len(src_traj))
+            if p <= 0.75:
+                dst_idx = max(0, min(len(src_traj) - 1, src_idx + self.rng.randint(-10, 10)))
+            else:
+                dst_idx = self.rng.randint(0, len(src_traj))
             if dst_idx != src_idx:
                 break
             if x >= 20:
@@ -362,6 +361,7 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file, with_g
     rng_sampleid = np.random.RandomState(seed)
 
     i = 0
+    sum_r = 0
     while i < nr_samples:
         import time
         start_time = time.time()
@@ -404,8 +404,9 @@ def create_and_save_reachability_samples(filename, nr_samples, traj_file, with_g
             maxshape=(None,), dtype=dtype)
 
         f.flush()
-        print(f"--- {time.time() - start_time} seconds --- to create {i}th sample")
         i += 1
+        sum_r += r
+        print(f"--- {time.time() - start_time} seconds --- to create {i}th sample, percentage reachable {sum_r / i}")
 
 
 def display_samples(filename, imageplot=False):
@@ -471,8 +472,8 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        create_and_save_reachability_samples("dataset_spikings", 1000, "long_trajectories.hd5", with_grid_cell_spikings=True)
-        display_samples("long_trajectories.hd5")
+        create_and_save_reachability_samples("dataset_spikings", 200000, "long_trajectories.hd5", with_grid_cell_spikings=True)
+        display_samples("dataset_spikings.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")
         # create_and_save_reachability_samples("test3", 1, "test_3.hd5")

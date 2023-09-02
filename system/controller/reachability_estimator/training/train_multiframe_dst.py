@@ -385,7 +385,7 @@ if __name__ == '__main__':
         'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_spikings"),
         'resume': False,
         'batch_size': 64,
-        'samples_per_epoch': 1000,
+        'samples_per_epoch': 10000,
         'max_epochs': 30,
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
