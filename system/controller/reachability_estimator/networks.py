@@ -25,7 +25,7 @@ def initializeCNN(model_variant='pair_conv'):
     elif model_variant == "with_dist":
         input_dim = 512 + 3
     elif model_variant == 'spikings':
-        input_dim = 512 + 8
+        input_dim = 512 + 24
     else:
         input_dim = 5120
 
@@ -361,34 +361,38 @@ class ImagePairEncoderV2(nn.Module):
 
 
 class SiameseNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, init_scale=1.0, bias=True, no_weight_init=False):
         super(SiameseNetwork, self).__init__()
 
-        self.conv_base = nn.Sequential(
-            nn.Conv2d(6, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
-        )
+        self.conv1 = nn.Conv2d(6, 16, kernel_size=3, padding=1, bias=bias)
+        self.pool1 = nn.MaxPool2d(2)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=bias)
+        self.pool2 = nn.MaxPool2d(2)
+        self.fc1 = nn.Linear(32 * 10 * 10, 128, bias=bias)
+        self.pool3 = nn.MaxPool2d(2)
+        self.fc2 = nn.Linear(128, 8, bias=bias)
 
-        self.fc = nn.Sequential(
-            nn.Linear(32 * 10 * 10, 128),
-            nn.ReLU(),
-            nn.Linear(128, 8)
-        )
+        if not no_weight_init:
+            for layer in (self.conv1, self.conv2, self.fc1, self.fc2):
+                nn.init.orthogonal_(layer.weight, init_scale)
+                if hasattr(layer, 'bias') and layer.bias is not None:
+                    with torch.no_grad():
+                        layer.bias.zero_()
 
     def forward_one(self, x):
-        x = self.conv_base(x)
+        x = F.relu(self.conv1(x))
+        x = self.pool1(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)
         x = x.view(x.size()[0], -1)
-        x = self.fc(x)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return x
 
     def forward(self, input1, input2):
         embed1 = self.forward_one(input1)
         embed2 = self.forward_one(input2)
-        return embed1 - embed2
+        return torch.cat([embed1, embed2, embed1 - embed2], dim=1)
 
 
 class ConvEncoder(nn.Module):
