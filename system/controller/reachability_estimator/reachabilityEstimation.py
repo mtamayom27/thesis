@@ -139,7 +139,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         """ Return reachability estimate from start to goal using the re_type """
         if self.with_spikings:
             return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]],
-                                                   [start.gc_connections], [goal.gc_connections], batch_size=1)[0]
+                                                   [start.consolidate_gc_spiking().flatten()], [goal.consolidate_gc_spiking().flatten()], batch_size=1)[0]
         return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]], batch_size=1)[0]
 
     def predict_reachability_batch(self, starts, goals, src_spikings=None, goal_spikings=None, batch_size=64):

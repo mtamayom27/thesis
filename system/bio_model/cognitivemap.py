@@ -365,7 +365,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
     def construct_graph(self):
         while True:
-            if len(self.trajectory_nodes) == 0:  # if it's taking too long
+            if len(self.trajectory_nodes) == 0:
                 break
             print(f"Length of trajectory_nodes = {len(self.trajectory_nodes)}")
             self.add_node_to_map(self.trajectory_nodes.pop(0))
