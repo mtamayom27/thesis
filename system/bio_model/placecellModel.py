@@ -94,14 +94,6 @@ class PlaceCell:
 
         return firing
 
-    def consolidate_gc_spiking(self, virtual=False):
-        """Consolidate spiking in one matrix for saving"""
-        s_vectors = np.zeros((len(self.gc_connections), len(self.gc_connections[0].s)))
-        for idx, gc in enumerate(self.gc_connections):
-            s = gc.s if not virtual else gc.s_virtual
-            s_vectors[idx] = s
-        return s_vectors
-
 
 def compute_weights(s_vectors):
     # weights = np.where(s_vectors > 0.1, 1, 0)

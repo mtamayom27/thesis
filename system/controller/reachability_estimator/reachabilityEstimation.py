@@ -162,7 +162,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                 else:
                     raise RuntimeError('Unsupported datatype: %s' % type(dst_batch[0]))
                 if self.with_spikings:
-                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(), torch.tensor(dst_batch).float(), torch.tensor(src_spikings).float(), torch.tensor(goal_spikings).float())
+                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(), torch.tensor(dst_batch).float(), batch_src_spikings=torch.tensor(src_spikings).float(), batch_dst_spikings=torch.tensor(goal_spikings).float())
 
                 return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(),
                                        torch.tensor(dst_batch).float())
@@ -279,3 +279,9 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
     def pass_threshold(self, reachability_factor, threshold) -> bool:
         return reachability_factor > threshold
+
+
+def spikings_reshape(img_array):
+    """ image stored in array form to image in correct shape for nn """
+    img = np.reshape(img_array, (6, 40, 40))
+    return img
