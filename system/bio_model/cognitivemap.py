@@ -43,7 +43,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -55,7 +55,7 @@ class CognitiveMapInterface:
 
         weights_filepath = os.path.join(get_path_re(), weights_file)
         self.reach_estimator = init_reachability_estimator(re_type, weights_file=weights_filepath, env_model=env_model,
-                                                           debug=debug)
+                                                           debug=debug, with_spikings=with_spikings)
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
         if from_data:
             self.load()
@@ -339,8 +339,8 @@ def shuffle_heuristic(nodes):
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None):
-        super().__init__(from_data, re_type, env_model, weights_file)
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False):
+        super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings)
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
@@ -364,9 +364,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
     def construct_graph(self):
-        start_time = time.time()
         while True:
-            if time.time() - start_time > 4 * 60 * 60:  # if it's taking too long
+            if len(self.trajectory_nodes) == 0:  # if it's taking too long
                 break
             print(f"Length of trajectory_nodes = {len(self.trajectory_nodes)}")
             self.add_node_to_map(self.trajectory_nodes.pop(0))

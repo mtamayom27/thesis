@@ -98,7 +98,7 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
 
     # TODO: add setting
     # cognitive_map = CognitiveMap(re_type=connection_type, connection=connection, env_model=env_model)
-    cognitive_map = LifelongCognitiveMap(re_type=connection_type, env_model=env_model, weights_file=weights_file)
+    cognitive_map = LifelongCognitiveMap(re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=True)
 
     pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map)
 
