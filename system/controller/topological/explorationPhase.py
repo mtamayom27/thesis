@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     creation_re_type = "firing"
     connection_re_type = "neural_network"
-    weights_file = "trained_conv_combined_datasets.50"
+    weights_file = "trained_spikings.30"
 
     exploration_path("Savinov_val3", creation_re_type, connection_re_type, weights_file)
 

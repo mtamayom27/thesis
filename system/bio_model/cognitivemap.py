@@ -386,6 +386,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                     self.trajectory_nodes.remove(candidate)
                                 self.calculate_and_add_edge(existing_node, candidate, weight)
                                 updated = True
+            self.save()
 
         for node in self.node_network.nodes:
             if self.node_network.degree(node) == 0:
@@ -406,6 +407,10 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
     def postprocess(self):
         self.construct_graph()
+
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+        CognitiveMapInterface.save(self)
+        print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
 
     def update_map(self, node_p, node_q, observation_p, observation_q, success):
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
