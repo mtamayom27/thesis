@@ -1,6 +1,30 @@
 
 import numpy as np
 
+import networkx as nx
+
+from matplotlib import pyplot as plt
+
+
+def plot_cognitive_map_path(G, path, env):
+    """ plot the path on the cognitive map """
+    import system.plotting.plotHelper as pH  # import add_environment
+
+    plt.figure()
+    ax = plt.gca()
+    pH.add_environment(ax, env)
+    pos = nx.get_node_attributes(G, 'pos')
+    nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=60)
+    nx.draw_networkx_edges(G, pos, edge_color='#CCCCC6')
+    if path is not None:
+        # draw_path
+        path_edges = list(zip(path, path[1:]))
+        nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
+        G = G.to_undirected()
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
+    plt.axis("equal")
+    plt.show()
+
 
 def compute_angle(vec_1, vec_2):
     length_vector_1 = np.linalg.norm(vec_1)

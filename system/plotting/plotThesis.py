@@ -1,6 +1,4 @@
 
-from helper import compute_angle
-
 import matplotlib.colors as mcolors
 import operator
 import os
@@ -10,6 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import rc
 
+from system.plotting.helper import compute_angle
 from system.plotting.plotHelper import TUM_colors
 
 mpl.rcParams['animation.ffmpeg_path'] = "ffmpeg/ffmpeg"
@@ -35,7 +34,7 @@ rc('text', usetex=True)
 
 
 # --------------- Plot grid cells ---------------
-def plot_grid_cell_modules(gc_modules, i, plot_target=False, plot_matches=False):
+def plot_grid_cell_modules(gc_modules, i=None, plot_target=False, plot_matches=False):
 
     spike_detector = None
     # if plot_matches:
@@ -81,14 +80,41 @@ def plot_grid_cell_modules(gc_modules, i, plot_target=False, plot_matches=False)
                 plt.quiver(origin_x, origin_y, vectors_x, vectors_y, color=TUM_colors['TUMDarkGray'],
                            width=0.01, scale=1, scale_units='xy')
 
-    # folder = "spikes_matched/" if plot_matches else "spikes_unmatched/"
-    folder = ""
+    if i is not None:
+        # folder = "spikes_matched/" if plot_matches else "spikes_unmatched/"
+        folder = ""
 
-    directory = "experiments/grid_cell_initialization/" + folder
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+        directory = "experiments/grid_cell_initialization/" + folder
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    plt.savefig("experiments/grid_cell_initialization/" + folder + "grid_cell_initialization_" + str(i), format="pdf")
+        plt.savefig("experiments/grid_cell_initialization/" + folder + "grid_cell_initialization_" + str(i), format="pdf")
+
+    plt.show()
+    plt.close()
+
+
+def plot_grid_cell(gc_modules_start, gc_modules_goal):
+
+    fig, axes = plt.subplots(2, len(gc_modules_start))
+
+    for m, gc in enumerate(gc_modules_start):
+        ax = axes[0, m]
+        ax.axes.get_xaxis().set_visible(False)
+
+        if m != 0:
+            ax.axes.get_yaxis().set_visible(False)
+
+        ax.imshow(gc.reshape(40, 40), origin="lower", cmap=tum_blue_map)
+
+    for m, gc in enumerate(gc_modules_goal):
+        ax = axes[1, m]
+        ax.axes.get_xaxis().set_visible(False)
+
+        if m != 0:
+            ax.axes.get_yaxis().set_visible(False)
+
+        ax.imshow(gc.reshape(40, 40), origin="lower", cmap=tum_blue_map)
 
     plt.show()
     plt.close()

@@ -9,6 +9,7 @@ import networkx as nx
 from matplotlib import pyplot as plt, animation
 
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+from system.plotting.helper import plot_cognitive_map_path
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -153,7 +154,7 @@ class TrajectoryFollower(object):
 
         # draw path on the cognitive map
         if plotting:
-            self.plot_cognitive_map_path(path, env)
+            plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
             graph_states = [nx.DiGraph(self.cognitive_map.node_network)]
             positions = [path[0]]
 
@@ -182,7 +183,7 @@ class TrajectoryFollower(object):
                     break
 
                 path[i:] = new_path
-                self.plot_cognitive_map_path(path, env)
+                plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
             else:
                 last_pc = pc
                 i += 1
@@ -208,26 +209,6 @@ class TrajectoryFollower(object):
             plt.show()
             save_graphs_to_csv(graph_states)
             write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
-
-    def plot_cognitive_map_path(self, path, env):
-        """ plot the path on the cognitive map """
-        import system.plotting.plotHelper as pH  # import add_environment
-
-        plt.figure()
-        ax = plt.gca()
-        pH.add_environment(ax, env)
-        G = self.cognitive_map.node_network
-        pos = nx.get_node_attributes(G, 'pos')
-        nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=60)
-        nx.draw_networkx_edges(G, pos, edge_color='#CCCCC6')
-        if path is not None:
-            # draw_path
-            path_edges = list(zip(path, path[1:]))
-            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
-            G = G.to_undirected()
-            nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
-        plt.axis("equal")
-        plt.show()
 
 
 if __name__ == "__main__":

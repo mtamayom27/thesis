@@ -15,6 +15,9 @@ import numpy as np
 import sys
 import os
 
+from system.plotting.helper import plot_cognitive_map_path
+from system.plotting.plotThesis import plot_grid_cell
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from system.utils import sample_normal
 from system.bio_model.placecellModel import PlaceCell
@@ -43,7 +46,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map.gpickle"):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -58,7 +61,7 @@ class CognitiveMapInterface:
                                                            debug=debug, with_spikings=with_spikings)
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
         if from_data:
-            self.load()
+            self.load(filename=map_filename)
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         pass
@@ -339,8 +342,8 @@ def shuffle_heuristic(nodes):
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False):
-        super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings)
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map.gpickle"):
+        super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
@@ -388,6 +391,9 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                 updated = True
             self.save()
 
+        self.clean_single_nodes()
+
+    def clean_single_nodes(self):
         for node in self.node_network.nodes:
             if self.node_network.degree(node) == 0:
                 self.trajectory_nodes.append(node)
@@ -469,38 +475,68 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
 if __name__ == "__main__":
     """ Load, draw and update the cognitive map """
+    from system.controller.simulation.pybulletEnv import PybulletEnvironment
 
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     connection = ("radius", "delayed")
-    weights_filename = "trained_model_new.50"
+    weights_filename = "trained_spikings.30"
     # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
-    cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model="Savinov_val3", weights_file=weights_filename)
+    map_filename = "cognitive_map_new.gpickle"
+    env_model = "Savinov_val3"
+    cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model=env_model, weights_file=weights_filename, map_filename=map_filename)
 
     # Update and Save the cognitive map
-    cm.postprocess()
-    cm.save()
+    # cm.postprocess()
+    # cm.save()
 
     # Draw the cognitive map
     cm.draw()
+    dt = 1e-2
+    env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True)
+    cm.clean_single_nodes()
+    import random
 
-    testing = True
-    if testing:
-        """ test the place cell drift of the cognitive map """
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
-        from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
-        from system.controller.local_controller.local_navigation import setup_gc_network
+    for i in range(10):
+        start, finish = random.sample(list(cm.node_network.edges()), 1)[0]
 
-        pc_network = PlaceCellNetwork(from_data=True, weights_file=weights_filename)
-        cognitive_map = CognitiveMap(from_data=True)
-        gc_network = setup_gc_network(1e-2)
+        plot_cognitive_map_path(cm.node_network, [start, finish], env)
+        from matplotlib import pyplot as plt
 
-        # environment setup
-        dt = 1e-2
-        env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True,
-                                  start=list(list(cm.node_network)[1].env_coordinates))
+        fig = plt.figure()
 
-        # set current grid cell spikings of the agent
-        gc_network.set_as_current_state(list(cognitive_map.node_network)[1].gc_connections)
+        ax = fig.add_subplot(1, 2, 1)
+        ax.axes.get_xaxis().set_visible(False)
+        ax.axes.get_yaxis().set_visible(False)
 
-        cognitive_map.test_place_cell_network(env, gc_network, from_data=True)
+        ax.imshow(start.observations[-1].transpose(1,2,0))
+        ax = fig.add_subplot(1, 2, 2)
+        ax.axes.get_xaxis().set_visible(False)
+        ax.axes.get_yaxis().set_visible(False)
+
+        ax.imshow(finish.observations[-1].transpose(1,2,0))
+
+        plt.show()
+        plt.close()
+
+        plot_grid_cell(start.gc_connections, finish.gc_connections)
+    # testing = True
+    # if testing:
+    #     """ test the place cell drift of the cognitive map """
+    #     from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    #     from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
+    #     from system.controller.local_controller.local_navigation import setup_gc_network
+    #
+    #     pc_network = PlaceCellNetwork(from_data=True, weights_file=weights_filename)
+    #     cognitive_map = CognitiveMap(from_data=True)
+    #     gc_network = setup_gc_network(1e-2)
+    #
+    #     # environment setup
+    #     dt = 1e-2
+    #     env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True,
+    #                               start=list(list(cm.node_network)[1].env_coordinates))
+    #
+    #     # set current grid cell spikings of the agent
+    #     gc_network.set_as_current_state(list(cognitive_map.node_network)[1].gc_connections)
+    #
+    #     cognitive_map.test_place_cell_network(env, gc_network, from_data=True)
