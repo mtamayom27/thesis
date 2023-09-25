@@ -16,6 +16,30 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
+def initializeSiamese(model = 'spikings'):
+    nets = {}
+
+    net = FCLayers(init_scale=1.0, input_dim=24, no_weight_init=False)
+    nets["fully_connected"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
+    nets["reachability_regression"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    net = SiameseNetwork()
+    nets["spikings_encoder"] = {
+        'net': net,
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+    }
+
+    return nets
+
+
 def initializeCNN(model_variant='pair_conv'):
 
     # Defining the NN and optimizers
@@ -122,8 +146,20 @@ def initialize_network(backbone='convolutional', model_variant='pair_conv'):
         return initializeCNN(model_variant)
     elif backbone == 'res_net':
         return initializeResNet(model_variant)
+    elif backbone == 'grid_cell':
+        return initializeSiamese(model_variant)
     else:
         raise ValueError("Backbone not implemented")
+
+
+def get_grid_cell(nets, batch_src_spikings, batch_dst_spikings):
+    spikings_features = nets['spikings_encoder'](batch_src_spikings, batch_dst_spikings)
+
+    # Get prediction
+    linear_features = nets['fully_connected'](spikings_features)
+    reachability_prediction = nets["reachability_regression"](linear_features)
+
+    return reachability_prediction
 
 
 def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings):
@@ -218,6 +254,8 @@ def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_tr
         return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings)
     elif backbone == 'res_net':
         return get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings)
+    elif backbone == 'grid_cell':
+        return get_grid_cell(nets, batch_src_spikings, batch_dst_spikings), None, None
 
 
 class AngleRegression(nn.Module):

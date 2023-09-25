@@ -161,12 +161,15 @@ def tensor_log(title, loader, train_device, model_variant, writer, epoch, nets, 
 
             loss_reachability = torch.nn.functional.binary_cross_entropy(reachability_prediction, r,
                                                                          reduction='none')
-            loss_position = torch.sqrt(torch.sum(
-                torch.nn.functional.mse_loss(position_prediction, position, reduction='none'), dim=1))
-            loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction, angle, reduction='none'))
+            if position_prediction is None:
+                new_loss = loss_reachability
+            else:
+                loss_position = torch.sqrt(torch.sum(
+                    torch.nn.functional.mse_loss(position_prediction, position, reduction='none'), dim=1))
+                loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction, angle, reduction='none'))
 
-            # backwards gradient
-            new_loss = loss_reachability + r @ (position_loss_weight * loss_position + angle_loss_weight * loss_angle)
+                # backwards gradient
+                new_loss = loss_reachability + r @ (position_loss_weight * loss_position + angle_loss_weight * loss_angle)
 
             log_loss += new_loss.sum().item()
             log_precision += precision(reachability_prediction, r.int())
@@ -306,10 +309,13 @@ def train_multiframedst(nets, net_opts, dataset, global_args):
 
             # Loss
             loss_reachability = torch.nn.functional.binary_cross_entropy(reachability_prediction, r, reduction='none')
-            loss_position = torch.sqrt(torch.sum(torch.nn.functional.mse_loss(position_prediction, position, reduction='none'), dim=1))
-            loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction, angle, reduction='none'))
+            if position_prediction is None:
+                loss = loss_reachability
+            else:
+                loss_position = torch.sqrt(torch.sum(torch.nn.functional.mse_loss(position_prediction, position, reduction='none'), dim=1))
+                loss_angle = torch.sqrt(torch.nn.functional.mse_loss(angle_prediction, angle, reduction='none'))
+                loss = loss_reachability + r @ (position_loss_weight * loss_position + angle_loss_weight * loss_angle)
 
-            loss = loss_reachability + r @ (position_loss_weight * loss_position + angle_loss_weight * loss_angle)
             loss = loss.sum()
             # backwards gradient
             loss.backward()
@@ -382,7 +388,7 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/trained_spikings"),
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/simese"),
         'resume': False,
         'batch_size': 64,
         'samples_per_epoch': 10000,
@@ -394,9 +400,9 @@ if __name__ == '__main__':
         'save_interval': 5,
         'model_variant': "spikings",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu",
-        'position_loss_weight': 0.006,
-        'angle_loss_weight': 0.003,
-        'backbone': 'convolutional',  # convolutional, res_net
+        'position_loss_weight': 0,#0.006,
+        'angle_loss_weight': 0,#0.003,
+        'backbone': 'grid_cell',  # convolutional, res_net
         'with_grid_cell_spikings': True,
         'external_link': False
     }
