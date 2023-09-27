@@ -16,31 +16,19 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
-def initializeSiamese(model = 'spikings'):
+def initialize_siamese(model='spikings'):
     nets = {}
 
-    net = FCLayers(init_scale=1.0, input_dim=24, no_weight_init=False)
-    nets["fully_connected"] = {
+    net = GridCellNetwork()
+    nets["grid_cell_network"] = {
         'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
-    nets["reachability_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = SiameseNetwork()
-    nets["spikings_encoder"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
+        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-3, eps=1.0e-5)
     }
 
     return nets
 
 
-def initializeCNN(model_variant='pair_conv'):
+def initialize_cnn(model_variant='pair_conv'):
 
     # Defining the NN and optimizers
     nets = {}
@@ -49,7 +37,7 @@ def initializeCNN(model_variant='pair_conv'):
     elif model_variant == "with_dist":
         input_dim = 512 + 3
     elif model_variant == 'spikings':
-        input_dim = 512 + 24
+        input_dim = 512 + 1
     else:
         input_dim = 5120
 
@@ -99,7 +87,7 @@ def initializeCNN(model_variant='pair_conv'):
     return nets
 
 
-def initializeResNet(model_variant='pair_conv'):
+def initialize_res_net(model_variant='pair_conv'):
     # Defining the NN and optimizers
     nets = {}
     input_dim = 64
@@ -143,23 +131,44 @@ def initializeResNet(model_variant='pair_conv'):
 
 def initialize_network(backbone='convolutional', model_variant='pair_conv'):
     if backbone == 'convolutional':
-        return initializeCNN(model_variant)
+        return initialize_cnn(model_variant)
     elif backbone == 'res_net':
-        return initializeResNet(model_variant)
+        return initialize_res_net(model_variant)
     elif backbone == 'grid_cell':
-        return initializeSiamese(model_variant)
+        return initialize_siamese(model_variant)
     else:
         raise ValueError("Backbone not implemented")
 
 
-def get_grid_cell(nets, batch_src_spikings, batch_dst_spikings):
-    spikings_features = nets['spikings_encoder'](batch_src_spikings, batch_dst_spikings)
+from torchmetrics.image import StructuralSimilarityIndexMeasure
 
-    # Get prediction
-    linear_features = nets['fully_connected'](spikings_features)
-    reachability_prediction = nets["reachability_regression"](linear_features)
+compare_ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
 
-    return reachability_prediction
+module_weights = torch.FloatTensor([6, 5, 4, 3, 2, 1])
+
+
+def get_grid_cell(batch_src_spikings, batch_dst_spikings):
+    """
+    Calculate the similarity between two arrays of grid cell modules using Structural Similarity Index (SSIM)
+    with weighted aggregation.
+
+    Args:
+    array1 (list of numpy arrays): First array of grid cell modules.
+    array2 (list of numpy arrays): Second array of grid cell modules.
+    module_weights (list of float): List of weights for each module. Must have the same length as arrays.
+
+    Returns:
+    float: Weighted SSIM-based similarity score.
+    """
+    batch_similarity_scores = torch.zeros(6, 64)
+
+    for ch in range(6):
+        batch_similarity_scores[ch] = compare_ssim(batch_src_spikings[:, ch:ch + 1, :, :], batch_dst_spikings[:, ch:ch + 1, :, :])
+    batch_similarity_scores = torch.FloatTensor(batch_similarity_scores)
+    batch_similarity_scores = torch.transpose(batch_similarity_scores, 0, 1)
+    batch_similarity_scores = (batch_similarity_scores * module_weights).sum(1) / module_weights.sum()
+    batch_similarity_scores = (torch.max(batch_similarity_scores, torch.fill(torch.zeros((64,)), 0.99)) - 0.99) / 0.01
+    return batch_similarity_scores
 
 
 def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings):
@@ -195,13 +204,13 @@ def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batc
             src_batch.view(batch_size, c, h, w),
             dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
 
-        spikings_features = nets['spikings_encoder'](batch_src_spikings, batch_dst_spikings)
+        spikings_features = get_grid_cell(batch_src_spikings, batch_dst_spikings)
 
         # Convolutional Layer
         conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
 
         # Get prediction
-        linear_features = nets['fully_connected'](torch.cat((conv_feature, spikings_features), 1))
+        linear_features = nets['fully_connected'](torch.cat((conv_feature, spikings_features.unsqueeze(1)), 1))
         reachability_prediction = nets["reachability_regression"](linear_features)
         position_prediction = nets["position_regression"](linear_features)
         angle_prediction = nets["angle_regression"](linear_features)
@@ -255,7 +264,45 @@ def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_tr
     elif backbone == 'res_net':
         return get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings)
     elif backbone == 'grid_cell':
-        return get_grid_cell(nets, batch_src_spikings, batch_dst_spikings), None, None
+        return get_grid_cell(batch_src_spikings, batch_dst_spikings), None, None
+
+
+class GridCellNetwork(nn.Module):
+    def __init__(self, no_weight_init=False):
+        super(GridCellNetwork, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.relu2 = nn.ReLU()
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # Define fully connected layers
+        self.fc1 = nn.Linear(64 * 10 * 10, 64)
+        self.relu3 = nn.ReLU()
+        self.fc2 = nn.Linear(64, 1)
+
+        if not no_weight_init:
+            for layer in (self.conv1, self.conv2, self.fc1, self.fc2):
+                nn.init.orthogonal_(layer.weight, 1.0)
+                if hasattr(layer, 'bias') and layer.bias is not None:
+                    with torch.no_grad():
+                        layer.bias.zero_()
+
+    def forward(self, x1, x2):
+        x1 = self.pool(self.relu1(self.conv1(x1)))
+        x1 = self.pool(self.relu2(self.conv2(x1)))
+        x1 = x1.view(-1, 32 * 10 * 10)
+
+        # Forward pass for the second grid cell module
+        x2 = self.pool(self.relu1(self.conv1(x2)))
+        x2 = self.pool(self.relu2(self.conv2(x2)))
+        x2 = x2.view(-1, 32 * 10 * 10)
+
+        x = torch.cat((x1, x2), dim=1)
+        x = self.relu3(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        return x.squeeze(1)
 
 
 class AngleRegression(nn.Module):

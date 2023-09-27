@@ -388,7 +388,7 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/simese"),
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/no_siamese"),
         'resume': False,
         'batch_size': 64,
         'samples_per_epoch': 10000,
@@ -400,9 +400,9 @@ if __name__ == '__main__':
         'save_interval': 5,
         'model_variant': "spikings",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu",
-        'position_loss_weight': 0,#0.006,
-        'angle_loss_weight': 0,#0.003,
-        'backbone': 'grid_cell',  # convolutional, res_net
+        'position_loss_weight': 0.06,
+        'angle_loss_weight': 0.03,
+        'backbone': 'convolutional',  # convolutional, res_net
         'with_grid_cell_spikings': True,
         'external_link': False
     }
