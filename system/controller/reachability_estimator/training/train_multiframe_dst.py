@@ -400,8 +400,8 @@ if __name__ == '__main__':
         'save_interval': 5,
         'model_variant': "spikings",  # "pair_conv",#"with_dist",#"the_only_variant",
         'train_device': "cpu",
-        'position_loss_weight': 0.06,
-        'angle_loss_weight': 0.03,
+        'position_loss_weight': 0.006,
+        'angle_loss_weight': 0.003,
         'backbone': 'convolutional',  # convolutional, res_net
         'with_grid_cell_spikings': True,
         'external_link': False

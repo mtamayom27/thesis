@@ -80,6 +80,9 @@ class ReachabilityEstimator:
         """ Determine whether two nodes are close to each other sufficiently to consider them the same node """
         return self.pass_threshold(self.predict_reachability(p, q), self.threshold_same)
 
+    def get_connectivity_probability(self, reachability_factor):
+        return reachability_factor
+
 
 class DistanceReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False):
@@ -114,7 +117,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        super().__init__(threshold_same=0.6, threshold_reachable=0.5, device=device, debug=debug)
+        super().__init__(threshold_same=0.7, threshold_reachable=0.5, device=device, debug=debug)
 
         self.with_spikings = with_spikings
         state_dict = torch.load(weights_file, map_location='cpu')
@@ -182,6 +185,9 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
 
     def pass_threshold(self, reachability_factor, threshold) -> bool:
         return reachability_factor > threshold
+
+    def get_connectivity_probability(self, reachability_factor):
+        return min(1.0, max((self.threshold_reachable - reachability_factor * 0.3) / self.threshold_reachable, 0.1))
 
 
 class SimulationReachabilityEstimator(ReachabilityEstimator):

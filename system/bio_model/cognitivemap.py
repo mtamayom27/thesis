@@ -133,7 +133,7 @@ class CognitiveMapInterface:
     def postprocess(self):
         pass
 
-    def update_map(self, node_p, node_q, observation_q, observation_p, success):
+    def update_map(self, node_p, node_q, observation_q, observation_p, success, current_snapped_location):
         pass
 
 
@@ -404,7 +404,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
     def calculate_and_add_edge(self, node, pc, reachability_weight):
         # todo make usable for other re apart from distance
-        connectivity_probability = min(1.0, max((self.reach_estimator.threshold_reachable - reachability_weight * 0.3) / self.reach_estimator.threshold_reachable,0.1))
+        connectivity_probability = self.reach_estimator.get_connectivity_probability(reachability_weight)
         # TODO: in paper here relative form transformation
         self.add_bidirectional_edge_to_map(pc, node,
                                            sample_normal(reachability_weight, self.sigma),
@@ -418,7 +418,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         CognitiveMapInterface.save(self)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
 
-    def update_map(self, node_p, node_q, observation_p, observation_q, success):
+    def update_map(self, node_p, node_q, observation_p, observation_q, success, current_snapped_location):
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
@@ -456,6 +456,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['mu'] = mu
                 edge['sigma'] = sigma
                 edge['weight'] = weight
+        self.calculate_and_add_edge(node_p, current_snapped_location, 1)
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
         return
