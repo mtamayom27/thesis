@@ -160,14 +160,15 @@ def get_grid_cell(batch_src_spikings, batch_dst_spikings):
     Returns:
     float: Weighted SSIM-based similarity score.
     """
-    batch_similarity_scores = torch.zeros(6, 64)
+    batch_size = batch_src_spikings.shape[0]
+    batch_similarity_scores = torch.zeros(6, batch_size)
 
     for ch in range(6):
         batch_similarity_scores[ch] = compare_ssim(batch_src_spikings[:, ch:ch + 1, :, :], batch_dst_spikings[:, ch:ch + 1, :, :])
     batch_similarity_scores = torch.FloatTensor(batch_similarity_scores)
     batch_similarity_scores = torch.transpose(batch_similarity_scores, 0, 1)
     batch_similarity_scores = (batch_similarity_scores * module_weights).sum(1) / module_weights.sum()
-    batch_similarity_scores = (torch.max(batch_similarity_scores, torch.fill(torch.zeros((64,)), 0.99)) - 0.99) / 0.01
+    batch_similarity_scores = (torch.max(batch_similarity_scores, torch.fill(torch.zeros((batch_size,)), 0.99)) - 0.99) / 0.01
     return batch_similarity_scores
 
 
