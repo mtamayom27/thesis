@@ -31,7 +31,7 @@ def init_reachability_estimator(type='distance', **kwargs):
         return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
     elif type == 'neural_network':
         return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
-                                            kwargs.get('weights_file', None))
+                                            kwargs.get('weights_file', None), kwargs.get('with_spikings', False))
     elif type == 'simulation':
         return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
                                                kwargs.get('env_model', None))
@@ -117,7 +117,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                         simulation: simulates navigation attempt and returns result
                         view_overlap: judges reachability based on view overlap of start and goal position within the environment
         """
-        super().__init__(threshold_same=0.7, threshold_reachable=0.5, device=device, debug=debug)
+        super().__init__(threshold_same=0.95, threshold_reachable=0.5, device=device, debug=debug)
 
         self.with_spikings = with_spikings
         state_dict = torch.load(weights_file, map_location='cpu')
@@ -142,7 +142,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         """ Return reachability estimate from start to goal using the re_type """
         if self.with_spikings:
             return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]],
-                                                   [start.consolidate_gc_spiking().flatten()], [goal.consolidate_gc_spiking().flatten()], batch_size=1)[0]
+                                                   [spikings_reshape(start.gc_connections.flatten())], [spikings_reshape(goal.gc_connections.flatten())], batch_size=1)[0]
         return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]], batch_size=1)[0]
 
     def predict_reachability_batch(self, starts, goals, src_spikings=None, goal_spikings=None, batch_size=64):
@@ -152,6 +152,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                 # when wrapping the list with np.array().
                 if isinstance(src_batch[0], np.ndarray):
                     src_batch = np.array(src_batch)
+                    if self.with_spikings:
+                        src_spikings = np.array(src_spikings)
                 elif isinstance(src_batch[0], torch.Tensor):
                     if not isinstance(src_batch, torch.Tensor):
                         src_batch = torch.stack(src_batch)
@@ -159,16 +161,18 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                     raise RuntimeError('Unsupported datatype: %s' % type(src_batch[0]))
                 if isinstance(dst_batch[0][0], np.ndarray):
                     dst_batch = np.array(dst_batch)
+                    if self.with_spikings:
+                        goal_spikings = np.array(goal_spikings)
                 elif isinstance(dst_batch[0][0], torch.Tensor):
                     if not isinstance(dst_batch, torch.Tensor):
                         dst_batch = torch.stack(dst_batch)
                 else:
                     raise RuntimeError('Unsupported datatype: %s' % type(dst_batch[0]))
                 if self.with_spikings:
-                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(), torch.tensor(dst_batch).float(), batch_src_spikings=torch.tensor(src_spikings).float(), batch_dst_spikings=torch.tensor(goal_spikings).float())
+                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.from_numpy(src_batch).float(), torch.from_numpy(dst_batch).float(), batch_src_spikings=torch.from_numpy(src_spikings).float(), batch_dst_spikings=torch.from_numpy(goal_spikings).float())
 
-                return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.tensor(src_batch).float(),
-                                       torch.tensor(dst_batch).float())
+                return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.from_numpy(src_batch).float(),
+                                       torch.from_numpy(dst_batch).float())
 
         assert len(starts) == len(goals)
         n = len(starts)
