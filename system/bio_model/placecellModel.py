@@ -95,13 +95,6 @@ class PlaceCell:
         return firing
 
 
-def compute_weights(s_vectors):
-    # weights = np.where(s_vectors > 0.1, 1, 0)
-    weights = np.array(s_vectors)  # decided to not change anything here, but do it when computing firing
-
-    return weights
-
-
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
 
@@ -148,13 +141,9 @@ class PlaceCellNetwork:
                 pc = PlaceCell(gc_connection, observations[idx], env_coordinates[idx])
                 self.place_cells.append(pc)
 
-    def create_new_pc(self, gc_modules, obs, coordinates):
+    def create_new_pc(self, gc_connections, obs, coordinates):
         # Consolidate grid cell spiking vectors to matrix of size n^2 x M
-        s_vectors = np.empty((len(gc_modules), len(gc_modules[0].s)))
-        for m, gc in enumerate(gc_modules):
-            s_vectors[m] = gc.s
-        weights = compute_weights(s_vectors)
-        pc = PlaceCell(weights, obs, coordinates)
+        pc = PlaceCell(gc_connections, obs, coordinates)
         self.place_cells.append(pc)
 
     def in_range(self, reach):
@@ -175,10 +164,10 @@ class PlaceCellNetwork:
             r = np.max(reach)
             return r > self.creation_threshold
 
-    def track_movement(self, gc_modules, observations, coordinates):
+    def track_movement(self, gc_network, observations, coordinates):
         """Keeps track of current grid cell firing"""
 
-        firing_values = self.compute_firing_values(gc_modules)
+        firing_values = self.compute_firing_values(gc_network.gc_modules)
 
         if self.re_type == "firing":
             firing = firing_values
@@ -187,7 +176,7 @@ class PlaceCellNetwork:
 
         created_new_pc = False
         if len(firing_values) == 0 or not self.in_range(firing):
-            self.create_new_pc(gc_modules, observations, coordinates)
+            self.create_new_pc(gc_network.consolidate_gc_spiking(), observations, coordinates)
             firing_values.append(1)
             created_new_pc = True
 

@@ -263,7 +263,7 @@ class GridCellNetwork:
             gc.s_virtual = np.copy(gc.s)
             gc.s_video_array.clear()
      
-    def set_as_current_state(self,gc_connections):
+    def set_as_current_state(self, gc_connections):
         """ new addition: set gc_connections as current state of the agent """
         for m, gc in enumerate(self.gc_modules):
             gc.s = gc_connections[m]

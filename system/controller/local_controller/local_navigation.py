@@ -178,7 +178,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
 
         if pc_network is not None and cognitive_map is not None:
             observations = get_observations(env)
-            [firing_values, created_new_pc] = pc_network.track_movement(gc_network.gc_modules, observations,
+            [firing_values, created_new_pc] = pc_network.track_movement(gc_network, observations,
                                                                         env.xy_coordinates[-1])
 
             cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], exploration_phase=exploration_phase)
@@ -212,7 +212,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     if plot_it:
         plot.plotTrajectoryInEnvironment(env, title=end_state)
 
-    pc = PlaceCell(gc_connections=gc_network.gc_modules, observations=get_observations(env), coordinates=env.xy_coordinates[-1])
+    pc = PlaceCell(gc_connections=gc_network.consolidate_gc_spiking(), observations=get_observations(env), coordinates=env.xy_coordinates[-1])
     if collect_data_traj:
         return status, data
     if collect_data_reachable:

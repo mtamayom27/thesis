@@ -46,7 +46,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map.gpickle"):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map_new.gpickle"):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -133,7 +133,7 @@ class CognitiveMapInterface:
     def postprocess(self):
         pass
 
-    def update_map(self, node_p, node_q, observation_q, observation_p, success, current_snapped_location):
+    def update_map(self, node_p, node_q, observation_q, observation_p, success, current_snapped_location, env=None):
         pass
 
 
@@ -418,7 +418,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         CognitiveMapInterface.save(self)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
 
-    def update_map(self, node_p, node_q, observation_p, observation_q, success, current_snapped_location):
+    def update_map(self, node_p, node_q, observation_p, observation_q, success, current_snapped_location, env=None):
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
@@ -438,6 +438,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
         if not success and connectivity_probability < self.threshold_edge_removal:
             # Prune the edge when p(r_ij^{t+1}|s) < Rp
+            plot_cognitive_map_path(self.node_network, [node_p, node_q], env)
             self.node_network.remove_edge(node_p, node_q)
             self.node_network.remove_edge(node_q, node_p)
             print(f"deleting edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")

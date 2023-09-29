@@ -91,7 +91,7 @@ def write_kwargs_to_file(file_path='data/history.txt', **kwargs):
 
 
 class TrajectoryFollower(object):
-    def __init__(self, env_model, creation_type, connection_type, weights_file=None):
+    def __init__(self, env_model, creation_type, connection_type, weights_file=None, with_spikings=False):
         """ Handles interactions between local controller and cognitive_map to navigate the environment.
 
         arguments:
@@ -103,7 +103,7 @@ class TrajectoryFollower(object):
         self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, weights_file=weights_file)
 
         # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
-        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file)
+        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=with_spikings)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
@@ -169,8 +169,8 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=True, step_limit=1000)
-            current_snapped_location = self.cognitive_map.locate_node(pc)
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1, current_snapped_location=current_snapped_location)
+            snapped_location_exists, current_snapped_location = self.cognitive_map.locate_node(pc)
+            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1, current_snapped_location=current_snapped_location, env=env)
             if plotting:
                 graph_states.append(nx.DiGraph(self.cognitive_map.node_network))
                 positions.append(pc)
@@ -207,8 +207,8 @@ class TrajectoryFollower(object):
 
             # Show the animation
             plt.show()
-            save_graphs_to_csv(graph_states)
-            write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
+            # save_graphs_to_csv(graph_states)
+            # write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
 
 
 if __name__ == "__main__":
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     weights_file = "trained_model_new.50"
     # setup
 
-    tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file)
+    tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True)
     # tj.navigation(start=97, goal=14)
     # tj.navigation(start=87, goal=100)
     # tj.navigation(start=111, goal=119)
@@ -242,5 +242,5 @@ if __name__ == "__main__":
     # tj.navigation(start=127,goal=26)    #failure, circle
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
-
-    tj.navigation()
+    for _ in range(10):
+        tj.navigation()
