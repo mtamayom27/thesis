@@ -415,8 +415,13 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.construct_graph()
 
     def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
-        CognitiveMapInterface.save(self)
-        print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
+        for node in self.trajectory_nodes:
+            self.add_node_to_map(node)
+        CognitiveMapInterface.save(self, filename=filename)
+
+    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+        CognitiveMapInterface.load(self, relative_folder, filename)
+        self.clean_single_nodes()
 
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
