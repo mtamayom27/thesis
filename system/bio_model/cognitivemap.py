@@ -133,7 +133,7 @@ class CognitiveMapInterface:
     def postprocess(self):
         pass
 
-    def update_map(self, node_p, node_q, observation_q, observation_p, success, current_snapped_location, env=None):
+    def update_map(self, node_p, node_q, observation_q, observation_p, success, env=None):
         pass
 
 
@@ -418,7 +418,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         CognitiveMapInterface.save(self)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
 
-    def update_map(self, node_p, node_q, observation_p, observation_q, success, current_snapped_location, env=None):
+    def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
@@ -457,7 +457,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['mu'] = mu
                 edge['sigma'] = sigma
                 edge['weight'] = weight
-        self.calculate_and_add_edge(node_p, current_snapped_location, 1)
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
         return

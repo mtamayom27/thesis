@@ -169,21 +169,13 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=True, step_limit=1000)
-            snapped_location_exists, current_snapped_location = self.cognitive_map.locate_node(pc)
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1, current_snapped_location=current_snapped_location, env=env)
+            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1, env=env)
             if plotting:
                 graph_states.append(nx.DiGraph(self.cognitive_map.node_network))
                 positions.append(pc)
 
             if stop == -1:
-                last_pc = current_snapped_location
-                new_path = self.cognitive_map.find_path(last_pc, goal)
-                if new_path is None or len(new_path) < 1:
-                    print("NO PATH FOUND")
-                    break
-
-                path[i:] = new_path
-                plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
+                last_pc = pc
             else:
                 last_pc = pc
                 i += 1
