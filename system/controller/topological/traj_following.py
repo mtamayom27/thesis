@@ -164,7 +164,7 @@ class TrajectoryFollower(object):
         original_path = list(path)
         last_pc = path[0]
         i = 0
-        while True:
+        while i + 1 < len(path):
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
@@ -177,7 +177,7 @@ class TrajectoryFollower(object):
 
             if stop == -1:
                 last_pc = pc
-                if path[i] not in self.cognitive_map.node_network or path[i + 1] not in self.cognitive_map.node_network[paath[i]]:
+                if path[i] not in self.cognitive_map.node_network or path[i + 1] not in self.cognitive_map.node_network[path[i]]:
                     new_path = self.cognitive_map.find_path(path[i], goal)
                     if new_path is None or len(new_path) < 1:
                         print("NO PATH FOUND")
