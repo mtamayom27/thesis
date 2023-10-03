@@ -129,7 +129,8 @@ class TrajectoryFollower(object):
                 start = list(self.cognitive_map.node_network)[start]
 
             if not goal:
-                goal = np.random.choice(list(self.cognitive_map.node_network))
+                while not goal or goal == start:
+                    goal = np.random.choice(list(self.cognitive_map.node_network))
                 # print("goal_index", list(self.cognitive_map.node_network).index(goal))
             else:
                 goal = list(self.cognitive_map.node_network)[goal]
@@ -176,11 +177,19 @@ class TrajectoryFollower(object):
 
             if stop == -1:
                 last_pc = pc
+                if path[i] not in self.cognitive_map.node_network or path[i + 1] not in self.cognitive_map.node_network[paath[i]]:
+                    new_path = self.cognitive_map.find_path(path[i], goal)
+                    if new_path is None or len(new_path) < 1:
+                        print("NO PATH FOUND")
+                        break
+
+                    path[i:] = new_path
+                    plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
             else:
                 last_pc = pc
                 i += 1
-                if i == len(path) - 1:
-                    break
+            if i == len(path) - 1:
+                break
 
         # plot the agent's trajectory in the environment
         if plotting:
