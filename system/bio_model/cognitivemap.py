@@ -343,13 +343,13 @@ def shuffle_heuristic(nodes):
 
 class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map.gpickle"):
-        super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
         self.threshold_edge_removal = 0.5
         self.p_s_given_r = 0.55
         self.p_s_given_not_r = 0.15
+        super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Collects nodes"""
@@ -424,6 +424,12 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.clean_single_nodes()
 
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
+        if node_q not in self.node_network[node_p]:
+            if success:
+                self.add_edge_to_map(node_p, node_q, 1)
+
+            return
+
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
         def conditional_probability(s=True, r=True):
@@ -477,6 +483,13 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             if reachable:
                 self.calculate_and_add_edge(node, pc, weight)
         return True, pc
+
+    def add_node_to_network(self, pc: PlaceCell):
+        self.add_node_to_map(pc)
+        for node in self.node_network.nodes:
+            reachable, weight = self.reach_estimator.get_reachability(node, pc)
+            if reachable:
+                self.calculate_and_add_edge(node, pc, weight)
 
 
 if __name__ == "__main__":

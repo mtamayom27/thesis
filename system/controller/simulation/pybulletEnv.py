@@ -564,6 +564,18 @@ class PybulletEnvironment:
         """ Uses decoded grid cell spikings as a goal vector. """
         return compute_navigation_goal_vector(gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network)
 
+    def reached(self, goal_vector):
+        if self.mode == "pod" and abs(np.linalg.norm(goal_vector)) < self.pod_arrival_threshold:
+            return True
+
+        if self.mode == "linear_lookahead" and abs(np.linalg.norm(goal_vector)) < self.lin_look_arrival_threshold:
+            return True
+
+        if self.mode == "analytical" and abs(
+                np.linalg.norm(goal_vector)) < self.analytical_arrival_threshold:
+            return True
+        return False
+
     def get_status(self):
         ''' Returns robot status during navigation
         
@@ -573,14 +585,12 @@ class PybulletEnvironment:
         -1  -- robot stuck
         '''
 
-        if self.mode == "pod" and abs(np.linalg.norm(self.goal_vector)) < self.pod_arrival_threshold:
-            return 1
+        if self.mode == "analytical":
+            goal_vector = self.calculate_goal_vector_analytically()
+        else:
+            goal_vector = self.goal_vector
 
-        if self.mode == "linear_lookahead" and abs(np.linalg.norm(self.goal_vector)) < self.lin_look_arrival_threshold:
-            return 1
-
-        if self.mode == "analytical" and abs(
-                np.linalg.norm(self.calculate_goal_vector_analytically())) < self.analytical_arrival_threshold:
+        if self.reached(goal_vector):
             return 1
 
         # threshold for considering the agent as stuck
@@ -596,12 +606,16 @@ class PybulletEnvironment:
         # Still going
         return 0
 
+    def get_goal_vector(self, gc_network=None, pod_network=None):
+        if self.mode == "analytical":
+            return self.calculate_goal_vector_analytically()
+        elif pod_network:
+            return self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
+        return np.zeros((2))
+
     def turn_to_goal(self, gc_network=None, pod_network=None):
         """ Agent turns to face in goal vector direction """
-        if self.mode == "analytical":
-            self.goal_vector = self.calculate_goal_vector_analytically()
-        elif pod_network:
-            self.goal_vector = self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
+        self.goal_vector = self.get_goal_vector(gc_network, pod_network)
 
         if np.linalg.norm(np.array(self.goal_vector)) == 0:
             return

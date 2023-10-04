@@ -176,15 +176,15 @@ class TrajectoryFollower(object):
                 positions.append(pc)
 
             if stop == -1:
-                last_pc = pc
-                if path[i] not in self.cognitive_map.node_network or path[i + 1] not in self.cognitive_map.node_network[paath[i]]:
-                    new_path = self.cognitive_map.find_path(path[i], goal)
-                    if new_path is None or len(new_path) < 1:
-                        print("NO PATH FOUND")
-                        break
+                last_pc, new_path = self.locate_node(env, pc, goal, self.gc_network, self.pod)
 
-                    path[i:] = new_path
-                    plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
+                if new_path is None or len(new_path) < 1:
+                    while new_path is None or len(new_path) < 1:
+                        node = np.random.choice(list(self.cognitive_map.node_network))
+                        new_path = [path[i]] + self.cognitive_map.find_path(node, goal)
+
+                path[i:] = new_path
+                plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
             else:
                 last_pc = pc
                 i += 1
@@ -204,12 +204,26 @@ class TrajectoryFollower(object):
                                 list(graph_states[frame].nodes)}, node_size=60)
 
             # Create the animation
-            ani = animation.FuncAnimation(fig, update, frames=len(graph_states), interval=1000)
+            # ani = animation.FuncAnimation(fig, update, frames=len(graph_states), interval=1000)
 
             # Show the animation
             plt.show()
             # save_graphs_to_csv(graph_states)
             # write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
+
+    def locate_node(self, env, pc, goal, gc_network=None, pod_network=None):
+        new_node = True
+        for node in self.cognitive_map.node_network.nodes:
+            goal_vector = env.get_goal_vector(gc_network, pod_network)  # recalculate goal_vector
+            if env.reached(goal_vector):
+                new_node = False
+                new_path = self.cognitive_map.find_path(node, goal)
+                if new_path:
+                    return node, new_path
+        if new_node:
+            self.cognitive_map.add_node_to_network(pc)
+        new_path = self.cognitive_map.find_path(pc, goal)
+        return pc, new_path
 
 
 if __name__ == "__main__":
@@ -243,5 +257,5 @@ if __name__ == "__main__":
     # tj.navigation(start=127,goal=26)    #failure, circle
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
-    for _ in range(10):
+    for _ in range(1):
         tj.navigation()
