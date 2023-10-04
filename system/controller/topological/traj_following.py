@@ -164,7 +164,7 @@ class TrajectoryFollower(object):
         original_path = list(path)
         last_pc = path[0]
         i = 0
-        while True:
+        while i + 1 < len(path):
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="combo",
