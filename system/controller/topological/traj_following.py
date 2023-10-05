@@ -181,7 +181,8 @@ class TrajectoryFollower(object):
                 if new_path is None or len(new_path) < 1:
                     while new_path is None or len(new_path) < 1:
                         node = np.random.choice(list(self.cognitive_map.node_network))
-                        new_path = [path[i]] + self.cognitive_map.find_path(node, goal)
+                        new_path = self.cognitive_map.find_path(node, goal)
+                    new_path = [path[i]] + new_path
 
                 path[i:] = new_path
                 plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
