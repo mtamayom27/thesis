@@ -6,7 +6,7 @@ import networkx as nx
 from matplotlib import pyplot as plt
 
 
-def plot_cognitive_map_path(G, path, env):
+def plot_cognitive_map_path(G, path, env, color="#E3722280"):
     """ plot the path on the cognitive map """
     import system.plotting.plotHelper as pH  # import add_environment
 
@@ -19,9 +19,9 @@ def plot_cognitive_map_path(G, path, env):
     if path is not None:
         # draw_path
         path_edges = list(zip(path, path[1:]))
-        nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
+        nx.draw_networkx_nodes(G, pos, nodelist=path, node_color=color, node_size=60)
         G = G.to_undirected()
-        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color=color, width=3)
     plt.axis("equal")
     plt.show()
 

@@ -14,6 +14,7 @@ import torchvision
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torchmetrics import MeanSquaredError
 
 
 def initialize_siamese(model='spikings'):
@@ -140,11 +141,9 @@ def initialize_network(backbone='convolutional', model_variant='pair_conv'):
         raise ValueError("Backbone not implemented")
 
 
-from torchmetrics.image import StructuralSimilarityIndexMeasure
+compare_mse = MeanSquaredError()
 
-compare_ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
-
-module_weights = torch.FloatTensor([6, 5, 4, 3, 2, 1])
+module_weights = torch.FloatTensor([32, 16, 8, 4, 2, 1])
 
 
 def get_grid_cell(batch_src_spikings, batch_dst_spikings):
@@ -164,7 +163,7 @@ def get_grid_cell(batch_src_spikings, batch_dst_spikings):
     batch_similarity_scores = torch.zeros(6, batch_size)
 
     for ch in range(6):
-        batch_similarity_scores[ch] = compare_ssim(batch_src_spikings[:, ch:ch + 1, :, :], batch_dst_spikings[:, ch:ch + 1, :, :])
+        batch_similarity_scores[ch] = compare_mse(batch_src_spikings[:, ch:ch + 1, :, :], batch_dst_spikings[:, ch:ch + 1, :, :])
     batch_similarity_scores = torch.FloatTensor(batch_similarity_scores)
     batch_similarity_scores = torch.transpose(batch_similarity_scores, 0, 1)
     batch_similarity_scores = (batch_similarity_scores * module_weights).sum(1) / module_weights.sum()

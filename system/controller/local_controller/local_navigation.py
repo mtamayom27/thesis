@@ -12,6 +12,8 @@
 import os
 import sys
 
+from memory_profiler import profile
+
 from system.bio_model.cognitivemap import CognitiveMapInterface
 from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
 
@@ -122,6 +124,7 @@ def get_observations(env):
     return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
+
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
                       collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,
@@ -173,15 +176,16 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     n = 0  # time steps
     stop = False  # stop signal received
     end_state = ""  # for plotting
+    pc_last = None
     while n < step_limit and not stop:
         env.navigation_step(gc_network, pod, obstacles=obstacles)
 
         if pc_network is not None and cognitive_map is not None:
             observations = get_observations(env)
             [firing_values, created_new_pc] = pc_network.track_movement(gc_network, observations,
-                                                                        env.xy_coordinates[-1])
+                                                                        env.xy_coordinates[-1], exploration_phase)
 
-            cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], exploration_phase=exploration_phase)
+            pc_last = cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], env=env, exploration_phase=exploration_phase, pc_network=pc_network)
 
         status = env.get_status()
         if status == -1:
@@ -212,12 +216,15 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     if plot_it:
         plot.plotTrajectoryInEnvironment(env, title=end_state)
 
-    pc = PlaceCell(gc_connections=gc_network.consolidate_gc_spiking(), observations=get_observations(env), coordinates=env.xy_coordinates[-1])
     if collect_data_traj:
         return status, data
     if collect_data_reachable:
         return status, [sample_after_turn, first_goal_vector]
-    return status, pc
+
+    if not pc_last:
+        pc_last = PlaceCell(gc_connections=gc_network.consolidate_gc_spiking(), observations=get_observations(env),
+                       coordinates=env.xy_coordinates[-1])
+    return status, pc_last
 
 
 if __name__ == "__main__":

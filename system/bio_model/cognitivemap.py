@@ -15,6 +15,8 @@ import numpy as np
 import sys
 import os
 
+from memory_profiler import profile
+
 from system.plotting.helper import plot_cognitive_map_path
 from system.plotting.plotThesis import plot_grid_cell
 
@@ -46,7 +48,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map_new.gpickle"):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map_partial.gpickle"):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -62,6 +64,9 @@ class CognitiveMapInterface:
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
         if from_data:
             self.load(filename=map_filename)
+        self.edge_i = 0
+        self.active_threshold = 0.93
+        self.prior_idx_pc_firing = None
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         pass
@@ -75,7 +80,6 @@ class CognitiveMapInterface:
             # return shortest path
             path = nx.shortest_path(g, source=start, target=goal)
         except nx.NetworkXNoPath:
-            print("no path")
             return None
 
         return path
@@ -101,14 +105,12 @@ class CognitiveMapInterface:
 
     def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
         """ Store the current state of the node_network """
-
         directory = os.path.join(get_path_top(), "data/cognitive_map")
         if not os.path.exists(directory):
             os.makedirs(directory)
+        nx.write_gpickle(self.node_network, os.path.join(directory, filename))
 
-        nx.write_gpickle(self.node_network, os.path.join(directory, "cognitive_map.gpickle"))
-
-    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
         """ Load existing cognitive map """
         directory = os.path.join(get_path_top(), relative_folder)
         if not os.path.exists(directory):
@@ -157,11 +159,8 @@ class CognitiveMap(CognitiveMapInterface):
         """
         super().__init__(from_data, re_type, env_model, weights_file)
 
-        self.active_threshold = 0.85
-
         self.connection = connection
 
-        self.prior_idx_pc_firing = None
         self.mode = mode
 
         self.radius = 5  # radius in which node connection is calculated
@@ -349,14 +348,47 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.threshold_edge_removal = 0.5
         self.p_s_given_r = 0.55
         self.p_s_given_not_r = 0.15
+        self.i = 0
+        self.edge_add_i=0
         super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Collects nodes"""
         exploration_phase = kwargs.get('exploration_phase', True)
+        env = kwargs.get('env', None)
+        pc_network = kwargs.get('pc_network', None)
         # Check if we have entered a new place cell
+        pc_new = None
         if exploration_phase and created_new_pc:
-            self.trajectory_nodes.append(pc)
+            self.add_node_to_map(pc)
+            for node in list(self.node_network.nodes):
+                if pc != node:
+                    connectable, weight = self.is_connectable(node, pc)
+                    if connectable:
+                        self.calculate_and_add_edge(node, pc, weight)
+        elif not exploration_phase and not created_new_pc:
+            idx_pc_active = np.argmax(pc_firing)
+            pc_active_firing = np.max(pc_firing)
+
+            if pc_active_firing > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
+                if self.prior_idx_pc_firing:
+                    # If we have entered place cell p after being in place cell q during
+                    # navigation, q is definitely reachable and the edge gets updated accordingly.
+                    q = list(self.node_network.nodes)[self.prior_idx_pc_firing]
+                    pc_new = list(self.node_network.nodes)[idx_pc_active]
+                    if q in self.node_network and pc_new in self.node_network and q not in self.node_network[pc_new]:
+                        print(
+                            f"adding edge {self.edge_add_i} [{self.prior_idx_pc_firing}-{idx_pc_active}]")
+                        self.edge_add_i += 1
+                        self.add_bidirectional_edge_to_map(q, pc_new,
+                                                           sample_normal(0.5, self.sigma),
+                                                           connectivity_probability=0.8,
+                                                           mu=0.5,
+                                                           sigma=self.sigma)
+                        # plot_cognitive_map_path(self.node_network, [q, pc_new], env, '#22E36280')
+
+                self.prior_idx_pc_firing = idx_pc_active
+        return pc_new
 
     def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
         """Check if two waypoints p and q are connectable."""
@@ -367,6 +399,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
 
     def construct_graph(self):
+        return
         while True:
             if len(self.trajectory_nodes) == 0:
                 break
@@ -389,45 +422,48 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                     self.trajectory_nodes.remove(candidate)
                                 self.calculate_and_add_edge(existing_node, candidate, weight)
                                 updated = True
-            self.save()
-
-        self.clean_single_nodes()
+            self.save(return_state=True)
 
     def clean_single_nodes(self):
         for node in self.node_network.nodes:
             if self.node_network.degree(node) == 0:
                 self.trajectory_nodes.append(node)
         print_debug(f'remaining nodes: {[waypoint.env_coordinates for waypoint in self.trajectory_nodes]}')
-        for node in self.trajectory_nodes:
-            if node in self.node_network.nodes:
-                self.node_network.remove_node(node)
+        # for node in self.trajectory_nodes:
+        #     if node in self.node_network.nodes:
+        #         self.node_network.remove_node(node)
 
     def calculate_and_add_edge(self, node, pc, reachability_weight):
         # todo make usable for other re apart from distance
         connectivity_probability = self.reach_estimator.get_connectivity_probability(reachability_weight)
         # TODO: in paper here relative form transformation
         self.add_bidirectional_edge_to_map(pc, node,
-                                           sample_normal(reachability_weight, self.sigma),
-                                           connectivity_probability=connectivity_probability, mu=reachability_weight,
+                                           sample_normal(1 - reachability_weight, self.sigma),
+                                           connectivity_probability=connectivity_probability, mu=1-reachability_weight,
                                            sigma=self.sigma)
 
     def postprocess(self):
         self.construct_graph()
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
-        for node in self.trajectory_nodes:
-            self.add_node_to_map(node)
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle", return_state=False):
+        # for node in self.trajectory_nodes:
+        #     self.add_node_to_map(node)
+        filename = filename[:-8] + f'_{self.i}.gpickle'
         CognitiveMapInterface.save(self, filename=filename)
+        self.i = (self.i + 1) % 5
+        # if return_state:
+        #     for node in self.trajectory_nodes:
+        #         self.node_network.remove_node(node)
 
-    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
         CognitiveMapInterface.load(self, relative_folder, filename)
-        self.clean_single_nodes()
+        #self.clean_single_nodes()
 
+    
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
+        if node_q == node_p:
+            return
         if node_q not in self.node_network[node_p]:
-            if success:
-                self.add_edge_to_map(node_p, node_q, 1)
-
             return
 
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
@@ -444,15 +480,17 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         # Update connectivity
         t = conditional_probability(success, True) * edges[0]['connectivity_probability']
         connectivity_probability = t / (t + conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
+        connectivity_probability = min(connectivity_probability, 0.95)
         for edge in edges:
             edge['connectivity_probability'] = connectivity_probability
 
         if not success and connectivity_probability < self.threshold_edge_removal:
             # Prune the edge when p(r_ij^{t+1}|s) < Rp
-            plot_cognitive_map_path(self.node_network, [node_p, node_q], env)
+            # plot_cognitive_map_path(self.node_network, [node_p, node_q], env)
             self.node_network.remove_edge(node_p, node_q)
             self.node_network.remove_edge(node_q, node_p)
-            print(f"deleting edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+            print(f"deleting edge {self.edge_i} [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+            self.edge_i += 1
             return
 
         # Update distance weight
@@ -487,9 +525,10 @@ class LifelongCognitiveMap(CognitiveMapInterface):
     def add_node_to_network(self, pc: PlaceCell):
         self.add_node_to_map(pc)
         for node in self.node_network.nodes:
-            reachable, weight = self.reach_estimator.get_reachability(node, pc)
-            if reachable:
-                self.calculate_and_add_edge(node, pc, weight)
+            if node != pc:
+                reachable, weight = self.reach_estimator.get_reachability(node, pc)
+                if reachable:
+                    self.calculate_and_add_edge(node, pc, weight)
 
 
 if __name__ == "__main__":
@@ -499,9 +538,9 @@ if __name__ == "__main__":
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     connection = ("radius", "delayed")
-    weights_filename = "trained_spikings.30"
+    weights_filename = "no_siamese_mse.50"
     # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
-    map_filename = "cognitive_map_new.gpickle"
+    map_filename = "cognitive_map.gpickle"
     env_model = "Savinov_val3"
     cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model=env_model, weights_file=weights_filename, map_filename=map_filename)
 
@@ -513,32 +552,48 @@ if __name__ == "__main__":
     cm.draw()
     dt = 1e-2
     env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True)
-    cm.clean_single_nodes()
-    import random
+    nodes_list = np.array(list(cm.node_network.nodes()))
+    start = nodes_list[72]
 
-    for i in range(10):
-        start, finish = random.sample(list(cm.node_network.edges()), 1)[0]
+    from matplotlib import pyplot as plt
 
-        plot_cognitive_map_path(cm.node_network, [start, finish], env)
-        from matplotlib import pyplot as plt
+    fig = plt.figure()
 
-        fig = plt.figure()
+    ax = fig.add_subplot(1, 2, 1)
+    ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
 
-        ax = fig.add_subplot(1, 2, 1)
-        ax.axes.get_xaxis().set_visible(False)
-        ax.axes.get_yaxis().set_visible(False)
+    ax.imshow(start.observations[-1].transpose(1,2,0))
 
-        ax.imshow(start.observations[-1].transpose(1,2,0))
-        ax = fig.add_subplot(1, 2, 2)
-        ax.axes.get_xaxis().set_visible(False)
-        ax.axes.get_yaxis().set_visible(False)
-
-        ax.imshow(finish.observations[-1].transpose(1,2,0))
-
-        plt.show()
-        plt.close()
-
-        plot_grid_cell(start.gc_connections, finish.gc_connections)
+    plt.show()
+    plt.close()
+    # cm.clean_single_nodes()
+    # cm.postprocess()
+    # import random
+    #
+    # for i in range(10):
+    #     start, finish = random.sample(list(cm.node_network.edges()), 1)[0]
+    #
+    #     plot_cognitive_map_path(cm.node_network, [start, finish], env)
+    #     from matplotlib import pyplot as plt
+    #
+    #     fig = plt.figure()
+    #
+    #     ax = fig.add_subplot(1, 2, 1)
+    #     ax.axes.get_xaxis().set_visible(False)
+    #     ax.axes.get_yaxis().set_visible(False)
+    #
+    #     ax.imshow(start.observations[-1].transpose(1,2,0))
+    #     ax = fig.add_subplot(1, 2, 2)
+    #     ax.axes.get_xaxis().set_visible(False)
+    #     ax.axes.get_yaxis().set_visible(False)
+    #
+    #     ax.imshow(finish.observations[-1].transpose(1,2,0))
+    #
+    #     plt.show()
+    #     plt.close()
+    #
+    #     plot_grid_cell(start.gc_connections, finish.gc_connections)
     # testing = True
     # if testing:
     #     """ test the place cell drift of the cognitive map """

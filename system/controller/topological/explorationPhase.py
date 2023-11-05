@@ -80,10 +80,10 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
     # TODO Johanna: Future Work: add exploration patterns for all mazes
     if env_model == "Savinov_val3":
         goals = [
-            [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5],
-            [1, -1.5], [0.5, 1.5], [2.5, -1.5], [1.5, 0],
-            [5, -1.5], [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4],
-            [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
+            # [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5], [1, -1.5]
+            [0.5, 1.5], [2.5, -1.5], [1.5, 0], [5, -1.5]
+            # , [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4],
+            # [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
         ]
 
     elif env_model == "Savinov_val2":
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     creation_re_type = "firing"
     connection_re_type = "neural_network"
-    weights_file = "trained_spikings.30"
+    weights_file = "no_siamese_mse.50"
 
     exploration_path("Savinov_val3", creation_re_type, connection_re_type, weights_file)
 

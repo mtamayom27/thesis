@@ -123,7 +123,7 @@ class PlaceCellNetwork:
         elif self.re_type == "simulation":
             self.creation_threshold = 1.0
         elif self.re_type == "firing":
-            self.creation_threshold = 0.93
+            self.creation_threshold = 0.932
         elif self.re_type == "view_overlap":
             self.creation_threshold = 0.4
 
@@ -164,15 +164,17 @@ class PlaceCellNetwork:
             r = np.max(reach)
             return r > self.creation_threshold
 
-    def track_movement(self, gc_network, observations, coordinates):
+    def track_movement(self, gc_network, observations, coordinates, creation_allowed):
         """Keeps track of current grid cell firing"""
-
         firing_values = self.compute_firing_values(gc_network.gc_modules)
 
         if self.re_type == "firing":
             firing = firing_values
         else:
             firing = self.compute_reachability_values(coordinates, observations)
+
+        if not creation_allowed:
+            return [firing_values, False]
 
         created_new_pc = False
         if len(firing_values) == 0 or not self.in_range(firing):

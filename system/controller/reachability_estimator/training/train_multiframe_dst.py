@@ -388,11 +388,11 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/no_siamese"),
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/no_siamese_mse"),
         'resume': False,
         'batch_size': 64,
         'samples_per_epoch': 10000,
-        'max_epochs': 30,
+        'max_epochs': 50,
         'lr_decay_epoch': 1,
         'lr_decay_rate': 0.7,
         'n_dataset_worker': 0,

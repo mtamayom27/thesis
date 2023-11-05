@@ -197,7 +197,7 @@ class PybulletEnvironment:
         # threshold for goal_vector length that signals arrival at goal
         self.pod_arrival_threshold = 0.5
         self.lin_look_arrival_threshold = 0.2
-        self.analytical_arrival_threshold = 0.15
+        self.analytical_arrival_threshold = 0.5
 
     def __load_obj(self, objectFilename, textureFilename):
         """load object files with specified texture into the environment"""
@@ -553,10 +553,11 @@ class PybulletEnvironment:
         direction_vector = direction_vector * 6 / min(rays[start_index:end_index + 1])
         return direction_vector
 
-    def calculate_goal_vector_analytically(self):
+    def calculate_goal_vector_analytically(self, goal=None):
         """ Uses a precise goal vector. """
+        goal_pos = goal if goal is not None else self.goal_pos
         rayFromPoint = p.getLinkState(self.carID, 0)[0]  # linkWorldPosition
-        goal_vector = [-rayFromPoint[0] + self.goal_pos[0], -rayFromPoint[1] + self.goal_pos[1]]
+        goal_vector = [-rayFromPoint[0] + goal_pos[0], -rayFromPoint[1] + goal_pos[1]]
 
         return goal_vector
 
@@ -606,11 +607,14 @@ class PybulletEnvironment:
         # Still going
         return 0
 
-    def get_goal_vector(self, gc_network=None, pod_network=None):
+    def get_goal_vector(self, gc_network=None, pod_network=None, goal=None):
         if self.mode == "analytical":
-            return self.calculate_goal_vector_analytically()
+            return self.calculate_goal_vector_analytically(goal)
         elif pod_network:
+            if goal is not None:
+                print("This mode is not implemented yet!")
             return self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
+
         return np.zeros((2))
 
     def turn_to_goal(self, gc_network=None, pod_network=None):
