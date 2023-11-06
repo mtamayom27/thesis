@@ -360,6 +360,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         # Check if we have entered a new place cell
         pc_new = None
         if exploration_phase and created_new_pc:
+            if self.is_mergeable(pc):
+                return None
             self.add_node_to_map(pc)
             for node in list(self.node_network.nodes):
                 if pc != node:
@@ -374,8 +376,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 if self.prior_idx_pc_firing:
                     # If we have entered place cell p after being in place cell q during
                     # navigation, q is definitely reachable and the edge gets updated accordingly.
-                    q = list(self.node_network.nodes)[self.prior_idx_pc_firing]
-                    pc_new = list(self.node_network.nodes)[idx_pc_active]
+                    q = pc_network.place_cells[self.prior_idx_pc_firing]
+                    pc_new = pc_network.place_cells[idx_pc_active]
                     if q in self.node_network and pc_new in self.node_network and q not in self.node_network[pc_new]:
                         print(
                             f"adding edge {self.edge_add_i} [{self.prior_idx_pc_firing}-{idx_pc_active}]")

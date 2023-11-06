@@ -94,6 +94,9 @@ class PlaceCell:
 
         return firing
 
+    def __eq__(self, obj):
+        return isinstance(obj, PlaceCell) and np.isclose(obj.env_coordinates, self.env_coordinates, rtol=1e-08, atol=1e-10, equal_nan=False)
+
 
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
