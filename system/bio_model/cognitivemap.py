@@ -8,6 +8,7 @@
 *
 ***************************************************************************************
 '''
+import math
 import time
 import networkx as nx
 import numpy as np
@@ -64,7 +65,7 @@ class CognitiveMapInterface:
         self.node_network = nx.DiGraph()  # if reachability under threshold no edge
         if from_data:
             self.load(filename=map_filename)
-        self.edge_i = 0
+        self.edge_i = 0  # for debug purposes
         self.active_threshold = 0.93
         self.prior_idx_pc_firing = None
 
@@ -341,7 +342,15 @@ def shuffle_heuristic(nodes):
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map.gpickle"):
+    def __init__(
+            self,
+            from_data=False,
+            re_type="distance",
+            env_model=None,
+            weights_file=None,
+            with_spikings=False,
+            map_filename="cognitive_map.gpickle"
+    ):
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
@@ -349,7 +358,19 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.p_s_given_r = 0.55
         self.p_s_given_not_r = 0.15
         self.i = 0
-        self.edge_add_i=0
+        self.edge_add_i = 0
+
+        self.add_edges = True  # always true, no need in adaptivity here
+        self.remove_edges = True  # always true
+
+        self.remove_nodes = True  # only makes sense after some time when the graph is already "good enough"
+        self.traffic_threshold = 10  # when a node has been visited more and meets the requirements -> can be deleted
+        self.number_of_edges_threshold = 3  # max number of edges a node to be deleted has
+        self.angle_threshold = math.pi * 20 / 180  # if the edges have different angle that might be a corner
+
+        self.add_nodes = False  # makes sense in the beginning when there are gaps
+        # todo no idea how to use it right now
+
         super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
@@ -369,28 +390,55 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                     if connectable:
                         self.calculate_and_add_edge(node, pc, weight)
         elif not exploration_phase and not created_new_pc:
-            idx_pc_active = np.argmax(pc_firing)
-            pc_active_firing = np.max(pc_firing)
-
-            if pc_active_firing > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
-                if self.prior_idx_pc_firing:
-                    # If we have entered place cell p after being in place cell q during
-                    # navigation, q is definitely reachable and the edge gets updated accordingly.
-                    q = pc_network.place_cells[self.prior_idx_pc_firing]
-                    pc_new = pc_network.place_cells[idx_pc_active]
-                    if q in self.node_network and pc_new in self.node_network and q not in self.node_network[pc_new]:
-                        print(
-                            f"adding edge {self.edge_add_i} [{self.prior_idx_pc_firing}-{idx_pc_active}]")
-                        self.edge_add_i += 1
-                        self.add_bidirectional_edge_to_map(q, pc_new,
-                                                           sample_normal(0.5, self.sigma),
-                                                           connectivity_probability=0.8,
-                                                           mu=0.5,
-                                                           sigma=self.sigma)
-                        # plot_cognitive_map_path(self.node_network, [q, pc_new], env, '#22E36280')
-
-                self.prior_idx_pc_firing = idx_pc_active
+            if self.add_edges:
+                self.process_new_edge(pc_firing, pc_network)
+            if self.remove_nodes:
+                self.count_traffic(self.prior_idx_pc_firing or np.argmax(pc_firing), pc_network)
         return pc_new
+
+    def count_traffic(self, pc_idx, pc_network):
+        pc = pc_network.place_cells[pc_idx]
+        if hasattr(pc, 'traffic'):
+            pc.traffic += 1
+        else:
+            pc.traffic = 1
+        if pc.traffic > self.traffic_threshold and len(self.node_network[pc]) < self.number_of_edges_threshold:
+            for neighbour1 in list(self.node_network[pc]):
+                for neighbour2 in list(self.node_network[pc]):
+                    vector1 = neighbour1.env_coordinates - pc.env_coordinates
+                    vector2 = neighbour2.env_coordinates - pc.env_coordinates
+                    cos = abs(np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2)))
+                    if cos < self.angle_threshold:
+                        return
+
+            plot_cognitive_map_path(self.node_network, [pc], env, '#22E36280')
+            for neighbour1 in list(self.node_network[pc]):
+                for neighbour2 in list(self.node_network[pc]):
+                    if neighbour1 != neighbour2:
+                        edge_attributes_dict = self.node_network.edges[neighbour1, neighbour2]
+                        self.add_bidirectional_edge_to_map(neighbour1, neighbour2, edge_attributes_dict['weight'], **edge_attributes_dict)
+
+    def process_new_edge(self, pc_firing, pc_network):
+        idx_pc_active = np.argmax(pc_firing)
+        pc_active_firing = np.max(pc_firing)
+
+        if pc_active_firing > self.active_threshold and self.prior_idx_pc_firing != idx_pc_active:
+            if self.prior_idx_pc_firing:
+                # If we have entered place cell p after being in place cell q during
+                # navigation, q is definitely reachable and the edge gets updated accordingly.
+                q = pc_network.place_cells[self.prior_idx_pc_firing]
+                pc_new = pc_network.place_cells[idx_pc_active]
+                if q in self.node_network and pc_new in self.node_network and q not in self.node_network[pc_new]:
+                    print(f"adding edge {self.edge_add_i} [{self.prior_idx_pc_firing}-{idx_pc_active}]")
+                    self.edge_add_i += 1
+                    self.add_bidirectional_edge_to_map(q, pc_new,
+                                                       sample_normal(0.5, self.sigma),
+                                                       connectivity_probability=0.8,
+                                                       mu=0.5,
+                                                       sigma=self.sigma)
+                    # plot_cognitive_map_path(self.node_network, [q, pc_new], env, '#22E36280')
+
+            self.prior_idx_pc_firing = idx_pc_active
 
     def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
         """Check if two waypoints p and q are connectable."""
@@ -399,32 +447,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
     def is_mergeable(self, p: PlaceCell) -> bool:
         """Check if the waypoint p is mergeable with the existing graph"""
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes)
-
-    def construct_graph(self):
-        return
-        while True:
-            if len(self.trajectory_nodes) == 0:
-                break
-            print(f"Length of trajectory_nodes = {len(self.trajectory_nodes)}")
-            self.add_node_to_map(self.trajectory_nodes.pop(0))
-
-            updated = True
-            while updated:
-                updated = False
-                shuffled_candidates = shuffle_heuristic(self.trajectory_nodes)
-                for candidate in shuffled_candidates:
-                    if self.is_mergeable(candidate):
-                        self.trajectory_nodes.remove(candidate)
-                    else:
-                        for existing_node in list(self.node_network.nodes):
-                            connectable, weight = self.is_connectable(candidate, existing_node)
-                            if connectable:
-                                if candidate not in self.node_network.nodes:
-                                    self.add_node_to_map(candidate)
-                                    self.trajectory_nodes.remove(candidate)
-                                self.calculate_and_add_edge(existing_node, candidate, weight)
-                                updated = True
-            self.save(return_state=True)
 
     def clean_single_nodes(self):
         for node in self.node_network.nodes:
@@ -444,9 +466,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                            connectivity_probability=connectivity_probability, mu=1-reachability_weight,
                                            sigma=self.sigma)
 
-    def postprocess(self):
-        self.construct_graph()
-
     def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle", return_state=False):
         # for node in self.trajectory_nodes:
         #     self.add_node_to_map(node)
@@ -461,7 +480,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         CognitiveMapInterface.load(self, relative_folder, filename)
         #self.clean_single_nodes()
 
-    
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
         if node_q == node_p:
             return
@@ -486,13 +504,9 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         for edge in edges:
             edge['connectivity_probability'] = connectivity_probability
 
-        if not success and connectivity_probability < self.threshold_edge_removal:
-            # Prune the edge when p(r_ij^{t+1}|s) < Rp
-            # plot_cognitive_map_path(self.node_network, [node_p, node_q], env)
-            self.node_network.remove_edge(node_p, node_q)
-            self.node_network.remove_edge(node_q, node_p)
-            print(f"deleting edge {self.edge_i} [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
-            self.edge_i += 1
+        if not success and self.remove_edges:
+            self.process_remove_edge(connectivity_probability, node_p, node_q)
+            self.save(filename="after.gpickle")
             return
 
         # Update distance weight
@@ -510,7 +524,18 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['weight'] = weight
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+        self.save(filename="after.gpickle")
         return
+
+    def process_remove_edge(self, connectivity_probability, node_p, node_q):
+        if connectivity_probability < self.threshold_edge_removal:
+            # Prune the edge when p(r_ij^{t+1}|s) < Rp
+            # plot_cognitive_map_path(self.node_network, [node_p, node_q], env)
+            self.node_network.remove_edge(node_p, node_q)
+            self.node_network.remove_edge(node_q, node_p)
+            print(
+                f"deleting edge {self.edge_i} [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: conn {connectivity_probability}")
+            self.edge_i += 1
 
     def locate_node(self, pc: PlaceCell):
         existing_node, located_pc = super().locate_node(pc)

@@ -177,8 +177,8 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="analytical",
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=1000)
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop != -1, env=env)
-            self.cognitive_map.save(filename="after.gpickle")
+            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == -1, env=env)
+
             path_length += 1
             if stop == -1:
                 last_pc, new_path = self.locate_node(env, pc, goal, self.gc_network, self.pod)
@@ -230,9 +230,11 @@ class TrajectoryFollower(object):
 
     def locate_node(self, env, pc, goal, gc_network=None, pod_network=None):
         new_node = True
+        close_node = None
         for node in self.cognitive_map.node_network.nodes:
             goal_vector = env.get_goal_vector(gc_network, pod_network, goal=node.env_coordinates)  # recalculate goal_vector
             if env.reached(goal_vector):
+                close_node = node
                 new_node = False
                 new_path = self.cognitive_map.find_path(node, goal)
                 if new_path:
@@ -243,7 +245,7 @@ class TrajectoryFollower(object):
         # self.cognitive_map.add_node_to_network(pc)
         # new_path = self.cognitive_map.find_path(pc, goal)
         # return pc, new_path
-        return pc, None
+        return close_node or pc, None
 
 
 if __name__ == "__main__":
