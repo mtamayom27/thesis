@@ -21,6 +21,7 @@ import os
 from system.controller.reachability_estimator.reachability_utils import ViewOverlapReachabilityController
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+sys.path.append("/home/tp2/Documents/Anna/bio-inspired-navigation/range_libc/pywrapper/common_msgs/geometry_msgs/")
 
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.controller.simulation.environment.map_occupancy import MapLayout
@@ -470,7 +471,7 @@ if __name__ == "__main__":
 
     test = True
     if test:
-        create_and_save_reachability_samples("dataset_spikings", 200000, "long_trajectories.hd5", with_grid_cell_spikings=True)
+        # create_and_save_reachability_samples("dataset_spikings", 200000, "long_trajectories.hd5", with_grid_cell_spikings=True)
         display_samples("dataset_spikings.hd5")
         # create_and_save_reachability_samples("test2", 1, "test_2.hd5")
         # display_samples("test2.hd5")

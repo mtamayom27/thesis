@@ -124,7 +124,6 @@ def get_observations(env):
     return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
-
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
                       collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,

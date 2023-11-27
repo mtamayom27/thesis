@@ -388,7 +388,7 @@ if __name__ == '__main__':
     """
 
     global_args = {
-        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/no_siamese_mse"),
+        'model_file': os.path.join(os.path.dirname(__file__), "../data/models/no_siamese_mse_updated"),
         'resume': False,
         'batch_size': 64,
         'samples_per_epoch': 10000,

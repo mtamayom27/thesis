@@ -83,7 +83,7 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.show()
 
 
-def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None):
+def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None, goal=True, trajectory=True):
     if not xy_coordinates:
         xy_coordinates = env.xy_coordinates
 
@@ -96,7 +96,7 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
     add_environment(ax, env)
 
     # plot goal vector
-    if env:
+    if env and goal:
         X = np.array((env.xy_coordinates[-1][0]))
         Y = np.array((env.xy_coordinates[-1][1]))
         U = np.array((env.goal_vector[0]))
@@ -119,8 +119,9 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
             G = G.to_undirected()
             nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
 
-    x, y = zip(*xy_coordinates)
-    ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10)
+    if trajectory:
+        x, y = zip(*xy_coordinates)
+        ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10, linewidths=0.5)
 
 
     # add_robot(ax, env)

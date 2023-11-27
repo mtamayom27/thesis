@@ -66,7 +66,7 @@ class CognitiveMapInterface:
         if from_data:
             self.load(filename=map_filename)
         self.edge_i = 0  # for debug purposes
-        self.active_threshold = 0.93
+        self.active_threshold = 0.9
         self.prior_idx_pc_firing = None
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
@@ -99,12 +99,16 @@ class CognitiveMapInterface:
         """ Add a new weighted edge to the cognitive map """
         self.node_network.add_edge(p, q, weight=w, **kwargs)
 
+    def add_bidirectional_edge_to_map_no_weight(self, p, q, **kwargs):
+        self.node_network.add_edge(p, q, **kwargs)
+        self.node_network.add_edge(q, p, **kwargs)
+
     def add_bidirectional_edge_to_map(self, p, q, w=1, **kwargs):
         """ Add 2 new weighted edges to the cognitive map """
         self.node_network.add_edge(p, q, weight=w, **kwargs)
         self.node_network.add_edge(q, p, weight=w, **kwargs)
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
         """ Store the current state of the node_network """
         directory = os.path.join(get_path_top(), "data/cognitive_map")
         if not os.path.exists(directory):
@@ -245,7 +249,7 @@ class CognitiveMap(CognitiveMapInterface):
 
             self.prior_idx_pc_firing = idx_pc_active
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map.gpickle"):
+    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
         CognitiveMapInterface.save(self)
         directory = os.path.join(get_path_top(), relative_folder)
 
@@ -349,7 +353,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             env_model=None,
             weights_file=None,
             with_spikings=False,
-            map_filename="cognitive_map.gpickle"
+            map_filename="cognitive_map_partial.gpickle"
     ):
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
@@ -371,6 +375,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.add_nodes = False  # makes sense in the beginning when there are gaps
         # todo no idea how to use it right now
 
+        self.visited_nodes = []
         super().__init__(from_data, re_type, env_model, weights_file, with_spikings=with_spikings, map_filename=map_filename)
 
     def track_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
@@ -379,7 +384,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         env = kwargs.get('env', None)
         pc_network = kwargs.get('pc_network', None)
         # Check if we have entered a new place cell
-        pc_new = None
         if exploration_phase and created_new_pc:
             if self.is_mergeable(pc):
                 return None
@@ -390,18 +394,29 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                     if connectable:
                         self.calculate_and_add_edge(node, pc, weight)
         elif not exploration_phase and not created_new_pc:
+            idx_pc_active = np.argmax(pc_firing)
             if self.add_edges:
                 self.process_new_edge(pc_firing, pc_network)
             if self.remove_nodes:
-                self.count_traffic(self.prior_idx_pc_firing or np.argmax(pc_firing), pc_network)
-        return pc_new
+                self.count_traffic(idx_pc_active, pc_network, env)
+            self.prior_idx_pc_firing = idx_pc_active
+        if self.prior_idx_pc_firing:
+            return pc_network.place_cells[self.prior_idx_pc_firing]
+        return None
 
-    def count_traffic(self, pc_idx, pc_network):
+    def count_traffic(self, pc_idx, pc_network, env):
+        if pc_idx == self.prior_idx_pc_firing:
+            return
         pc = pc_network.place_cells[pc_idx]
-        if hasattr(pc, 'traffic'):
-            pc.traffic += 1
-        else:
-            pc.traffic = 1
+        if pc not in self.node_network:
+            return
+        idx = list(self.node_network.nodes).index(pc)
+        if pc not in self.visited_nodes:
+            if hasattr(pc, 'traffic'):
+                pc.traffic += 1
+            else:
+                pc.traffic = 1
+            self.visited_nodes.append(pc)
         if pc.traffic > self.traffic_threshold and len(self.node_network[pc]) < self.number_of_edges_threshold:
             for neighbour1 in list(self.node_network[pc]):
                 for neighbour2 in list(self.node_network[pc]):
@@ -412,11 +427,13 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                         return
 
             plot_cognitive_map_path(self.node_network, [pc], env, '#22E36280')
+            print(f"NODE {idx} VISITED A LOT AND MAKES NO SENSE HERE. DELETING")
             for neighbour1 in list(self.node_network[pc]):
                 for neighbour2 in list(self.node_network[pc]):
                     if neighbour1 != neighbour2:
-                        edge_attributes_dict = self.node_network.edges[neighbour1, neighbour2]
-                        self.add_bidirectional_edge_to_map(neighbour1, neighbour2, edge_attributes_dict['weight'], **edge_attributes_dict)
+                        edge_attributes_dict = self.node_network.edges[neighbour1, pc]
+                        self.add_bidirectional_edge_to_map_no_weight(neighbour1, neighbour2, **edge_attributes_dict)
+            self.node_network.remove_node(pc)
 
     def process_new_edge(self, pc_firing, pc_network):
         idx_pc_active = np.argmax(pc_firing)
@@ -437,8 +454,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                                        mu=0.5,
                                                        sigma=self.sigma)
                     # plot_cognitive_map_path(self.node_network, [q, pc_new], env, '#22E36280')
-
-            self.prior_idx_pc_firing = idx_pc_active
 
     def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
         """Check if two waypoints p and q are connectable."""
@@ -483,7 +498,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
         if node_q == node_p:
             return
-        if node_q not in self.node_network[node_p]:
+        if node_p not in self.node_network or node_q not in self.node_network[node_p]:
             return
 
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
@@ -506,7 +521,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
         if not success and self.remove_edges:
             self.process_remove_edge(connectivity_probability, node_p, node_q)
-            self.save(filename="after.gpickle")
+            self.save(filename="after_new.gpickle")
             return
 
         # Update distance weight
@@ -524,7 +539,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['weight'] = weight
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
-        self.save(filename="after.gpickle")
+        self.save(filename="after_new.gpickle")
         return
 
     def process_remove_edge(self, connectivity_probability, node_p, node_q):
@@ -567,7 +582,7 @@ if __name__ == "__main__":
     connection = ("radius", "delayed")
     weights_filename = "no_siamese_mse.50"
     # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
-    map_filename = "cognitive_map.gpickle"
+    map_filename = "after_new.gpickle"
     env_model = "Savinov_val3"
     cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model=env_model, weights_file=weights_filename, map_filename=map_filename)
 

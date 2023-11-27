@@ -92,7 +92,7 @@ def write_kwargs_to_file(file_path='data/history.txt', **kwargs):
 
 
 class TrajectoryFollower(object):
-    def __init__(self, env_model, creation_type, connection_type, weights_file=None, with_spikings=False, map_file="cognitive_map.gpickle"):
+    def __init__(self, env_model, creation_type, connection_type, weights_file=None, with_spikings=False, map_file="cognitive_map_partial.gpickle"):
         """ Handles interactions between local controller and cognitive_map to navigate the environment.
 
         arguments:
@@ -119,27 +119,33 @@ class TrajectoryFollower(object):
                         if None: random start and goal are chose
         
         """
+        # [list(self.cognitive_map.node_network.nodes).index(x) for x in
+        #  self.cognitive_map.node_network[list(self.cognitive_map.node_network.nodes)[start]]]
+        #
+        # [[list(self.cognitive_map.node_network.nodes).index(y) for y in x] for x in
+        #  nx.shortest_path(self.cognitive_map.node_network, list(self.cognitive_map.node_network.nodes)[0]).values()]
+
 
         # Plan a topological path through the environment,
         # if no such path exists choose random start and goal until a path is found
-        if not start:
-            start = np.random.choice(list(self.cognitive_map.node_network))
+        if start is None:
+            start = np.random.choice(list(self.cognitive_map.node_network.nodes))
             # print("start_index", list(self.cognitive_map.node_network).index(start))
         else:
-            start = list(self.cognitive_map.node_network)[start]
+            start = list(self.cognitive_map.node_network.nodes)[start]
 
-        if not goal:
+        if goal is None:
             while not goal or goal == start:
-                goal = np.random.choice(list(self.cognitive_map.node_network))
+                goal = np.random.choice(list(self.cognitive_map.node_network.nodes))
             # print("goal_index", list(self.cognitive_map.node_network).index(goal))
         else:
-            goal = list(self.cognitive_map.node_network)[goal]
+            goal = list(self.cognitive_map.node_network.nodes)[goal]
 
         path = self.cognitive_map.find_path(start, goal)
         if not path:
             j = 0
             while path is None and j < 10:
-                node = np.random.choice(list(self.cognitive_map.node_network))
+                node = np.random.choice(list(self.cognitive_map.node_network.nodes))
                 path = self.cognitive_map.find_path(node, goal)
                 j += 1
             if path is None:
@@ -148,7 +154,7 @@ class TrajectoryFollower(object):
 
         # print the topological path as a series of node indexes
         for i, p in enumerate(path):
-            print("path_index", i, list(self.cognitive_map.node_network).index(p))
+            print("path_index", i, list(self.cognitive_map.node_network.nodes).index(p))
 
         # start
         src_pos = list(path[0].env_coordinates)
@@ -177,16 +183,16 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="analytical",
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=1000)
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == -1, env=env)
+            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1, env=env)
 
             path_length += 1
-            if stop == -1:
+            if stop != 1:
                 last_pc, new_path = self.locate_node(env, pc, goal, self.gc_network, self.pod)
 
                 if new_path is None:
                     j = 0
                     while new_path is None and j < 10:
-                        node = np.random.choice(list(self.cognitive_map.node_network))
+                        node = np.random.choice(list(self.cognitive_map.node_network.nodes))
                         new_path = self.cognitive_map.find_path(node, goal)
                         j += 1
                     if new_path is None:
@@ -203,13 +209,14 @@ class TrajectoryFollower(object):
             if path_length % 200 == 0 and plotting:
                 plot.plotTrajectoryInEnvironment(env)
 
+        self.cognitive_map.visited_nodes = []
         if path_length >= path_length_limit:
             print("LIMIT WAS REACHED STOPPING HERE")
 
         # plot the agent's trajectory in the environment
         if plotting:
-            plot.plotTrajectoryInEnvironment(env)
-            plot.plotTrajectoryInEnvironment(env, cognitive_map=self.cognitive_map)
+            plot.plotTrajectoryInEnvironment(env, goal=False)
+            plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=self.cognitive_map)
 
             # fig, ax = plt.subplots()
 
@@ -255,7 +262,7 @@ if __name__ == "__main__":
     creation_re_type = "firing"
     connection_re_type = "neural_network"
     weights_file = "no_siamese_mse.50"
-    map_file="after_4.gpickle"
+    map_file="cognitive_map_partial.gpickle"
     # setup
 
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True, map_file=map_file)
@@ -281,25 +288,25 @@ if __name__ == "__main__":
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
 
-    tj.navigation(start=310, goal=308)
-    tj.cognitive_map.draw()
-    tj.cognitive_map.save(filename="after.gpickle")
-    print(f"Navigation 0 finished")
+#     tj.navigation(start=310, goal=308)
+#     tj.cognitive_map.draw()
+#     tj.cognitive_map.save(filename="after_new.gpickle")
+#     print(f"Navigation 0 finished")
+#
+#     tj.navigation(start=0, goal=340)
+#     tj.cognitive_map.draw()
+#     tj.cognitive_map.save(filename="after_new.gpickle")
+#     print(f"Navigation 1 finished")
 
-    tj.navigation(start=0, goal=340)
-    tj.cognitive_map.draw()
-    tj.cognitive_map.save(filename="after.gpickle")
-    print(f"Navigation 1 finished")
-
-    tj.navigation(start=343, goal=443)
-    tj.cognitive_map.draw()
-    tj.cognitive_map.save(filename="after.gpickle")
-    print(f"Navigation 2 finished")
+    # tj.navigation(start=308, goal=309)
+    # tj.cognitive_map.draw()
+    # tj.cognitive_map.save(filename="after_new.gpickle")
+    # print(f"Navigation 2 finished")
     #
-    # for _ in range(50):
-    #     tj.navigation()
-    #     tj.cognitive_map.draw()
-    #     tj.cognitive_map.save(filename="after.gpickle")
-    #     print(f"Navigation {_} finished")
-    # print("Navigation finished")
+    for navigation_i in range(100):
+        tj.navigation()
+        tj.cognitive_map.draw()
+        tj.cognitive_map.save(filename="after_new.gpickle")
+        print(f"Navigation {navigation_i} finished")
+    print("Navigation finished")
 

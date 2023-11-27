@@ -204,10 +204,13 @@ def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batc
             src_batch.view(batch_size, c, h, w),
             dst_batch.view(batch_size, c, h, w)).view(batch_size, 1, -1)
 
+        # Convolutional Layer
+        conv_feature = nets['conv_encoder'](pair_features.transpose(1, 2))
+
         spikings_features = get_grid_cell(batch_src_spikings, batch_dst_spikings)
 
         # Get prediction
-        linear_features = nets['fully_connected'](torch.cat((pair_features, spikings_features.unsqueeze(1)), 1))
+        linear_features = nets['fully_connected'](torch.cat((conv_feature, spikings_features.unsqueeze(1)), 1))
         reachability_prediction = nets["reachability_regression"](linear_features)
         position_prediction = nets["position_regression"](linear_features)
         angle_prediction = nets["angle_regression"](linear_features)
@@ -395,8 +398,8 @@ class FCLayers(nn.Module):
         super(FCLayers, self).__init__()
 
         self.fc1 = nn.Linear(input_dim, input_dim // 2, bias=bias)
-        self.fc2 = nn.Linear(input_dim // 2, input_dim // 4, bias=bias)
-        self.fc3 = nn.Linear(input_dim // 4, 4, bias=bias)
+        self.fc2 = nn.Linear(input_dim // 2, input_dim // 2, bias=bias)
+        self.fc3 = nn.Linear(input_dim // 2, 4, bias=bias)
 
         if not no_weight_init:
             for layer in (self.fc1, self.fc2, self.fc3):
