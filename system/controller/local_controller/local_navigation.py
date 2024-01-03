@@ -49,7 +49,7 @@ def compute_navigation_goal_vector(gc_network, nr_steps, env, model="pod", pod=N
         # or it is the first calculation
         find_new_goal_vector(gc_network, env, model, pod=pod)
 
-        # future work: adding a turn here could make the local controller more robust
+        # TODO Johanna: adding a turn here could make the local controller more robust
         # env.turn_to_goal()
     else:
         env.goal_vector = env.goal_vector - np.array(env.xy_speeds[-1]) * env.dt
@@ -116,11 +116,11 @@ def setup_gc_network(dt):
 def get_observations(env):
     # TODO Johanna: parameterize context length and delta T
     # observations with context length k=10 and delta T = 3
-    observations = env.images[::3][-10:]
+    observations = env.images[::3][-1:]
     # reformat observation images
     # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
-    if len(observations) < 10:
-        observations += [observations[-1]] * (10 - len(observations))
+    # if len(observations) < 10:
+    #     observations += [observations[-1]] * (10 - len(observations))
     return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
@@ -184,7 +184,9 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
             [firing_values, created_new_pc] = pc_network.track_movement(gc_network, observations,
                                                                         env.xy_coordinates[-1], exploration_phase)
 
-            pc_last = cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], env=env, exploration_phase=exploration_phase, pc_network=pc_network)
+            new_pc_last = cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], env=env, exploration_phase=exploration_phase, pc_network=pc_network)
+            if new_pc_last:
+                pc_last = new_pc_last
 
         status = env.get_status()
         if status == -1:
@@ -220,9 +222,9 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     if collect_data_reachable:
         return status, [sample_after_turn, first_goal_vector]
 
-    if not pc_last:
-        pc_last = PlaceCell(gc_connections=gc_network.consolidate_gc_spiking(), observations=get_observations(env),
-                       coordinates=env.xy_coordinates[-1])
+    if not pc_last and not exploration_phase and pc_network and cognitive_map.add_nodes:
+        pc_network.create_new_pc(gc_network.consolidate_gc_spiking(), get_observations(env), env.xy_coordinates[-1])
+        pc_last = pc_network.place_cells[-1]
     return status, pc_last
 
 
@@ -439,15 +441,15 @@ if __name__ == "__main__":
             env.tactile_cone = cone
 
             over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
-                                        plot_it=False, step_limit=10000)
-            if over != 1: return
+                                        plot_it=True, step_limit=10000, obstacles=False)
+            # if over != 1: return
             print("here", over, mapping, combine, num_ray_dir, cone)
 
             nr_steps = env.nr_ofsteps
 
             """ TRIAL 2 -----------------------------------------------------------------------------------------------------------------------"""
             start = [0, -2]
-            goal = [-1.5, 2]
+            goal = [-2, 2]
             env_model = "obstacle_map_2"
 
             if model == "combo":
@@ -465,8 +467,8 @@ if __name__ == "__main__":
             env.tactile_cone = cone
 
             over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
-                                        plot_it=False, step_limit=10000)
-            if over != 1: return
+                                        plot_it=True, step_limit=10000, obstacles=False)
+            # if over != 1: return
 
             nr_steps += env.nr_ofsteps
 
@@ -491,8 +493,8 @@ if __name__ == "__main__":
             env.tactile_cone = cone
 
             over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
-                                        plot_it=False, step_limit=10000)
-            if over != 1: return
+                                        plot_it=True, step_limit=10000, obstacles=False)
+            # if over != 1: return
             print(over, mapping, combine, num_ray_dir, cone)
 
             nr_steps += env.nr_ofsteps
@@ -508,26 +510,26 @@ if __name__ == "__main__":
 
 
         # 1) CHOOSE WHETHER TO TEST WITH ANALYTICAL OR BIO-INSPIRED GOAL VECTOR CALCULATION
-        model = "analytical"  # "combo"
+        model = "combo"  # "combo"
 
         working_combinations = []
         # 2) ADJUST TEST PARAMETER RANGES
         all = False
         if all:
             # 2A) test a range of parameter values in different combinations
-            for nr_ofrays in [16, 32, 64]:
-                for cone in [90, 120, 180, 360]:
+            for nr_ofrays in [21]:
+                for cone in [120]:
                     num_ray_dir = int(nr_ofrays // (360 / cone))
-                    for mapping in [0.5, 1, 1.5, 2]:
-                        for combine in [0.5, 1, 1.5, 2]:
-                            three_trials(model, working_combinations, num_ray_dir, cone, mapping, combine)
+                    for mapping in [1.5]:
+                        for combine in [1.5]:
+                            three_trials(model, working_combinations, nr_ofrays, cone, mapping, combine)
         else:
             # 2B) choose a few combinations to test
-            combinations = [(64, 180, 2, 0.5), (64, 120, 1.5, 1.5)]
+            combinations = [(21, 120, 1.5, 1.5)]
             for c in combinations:
                 nr_ofrays, cone, mapping, combine = c
                 num_ray_dir = int(nr_ofrays // (360 / cone))
-                three_trials(model, working_combinations, num_ray_dir, cone, mapping, combine)
+                three_trials(model, working_combinations, nr_ofrays, cone, mapping, combine)
 
         directory = "experiments/"
         if not os.path.exists(directory):

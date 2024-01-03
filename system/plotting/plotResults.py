@@ -105,7 +105,6 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
         q = ax.quiver(X, Y, U, V, units='xy', scale=1, color=TUM_colors["TUMAccentGreen"])
 
     if cognitive_map:
-        add_environment(ax, env)
         G = cognitive_map.node_network
         pos = nx.get_node_attributes(G, 'pos')
         # nx.draw(G,pos,node_color='#0065BD',node_size=10)
@@ -123,6 +122,7 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
         x, y = zip(*xy_coordinates)
         ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10, linewidths=0.5)
 
+    add_environment(ax, env)
 
     # add_robot(ax, env)
     # if env.goal_pos:

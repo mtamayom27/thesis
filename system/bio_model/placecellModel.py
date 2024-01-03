@@ -129,7 +129,7 @@ class PlaceCellNetwork:
         elif self.re_type == "simulation":
             self.creation_threshold = 1.0
         elif self.re_type == "firing":
-            self.creation_threshold = 0.932
+            self.creation_threshold = 0.933
         elif self.re_type == "view_overlap":
             self.creation_threshold = 0.4
 

@@ -67,15 +67,13 @@ def closest_subsegment(values):
 
 def vectors_in_one_direction(v1, v2) -> bool:
     dot_product = np.dot(v1, v2)
-
-    # Check if the dot product is non-positive (angle in range -90 to 90 degrees)
-    return dot_product <= 0
+    return dot_product >= 0
 
 
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
-    def __init__(self, visualize, dt, env_model, mode, build_data_set=False, start=None, orientation=False):
+    def __init__(self, visualize, dt, env_model, mode, build_data_set=False, start=None, orientation=False, frame_limit=5000):
         """ Create environment.
         
         arguments:
@@ -176,10 +174,12 @@ class PybulletEnvironment:
         self.nr_ofsteps = 0  # keeps track of number of steps taken with current decoder (used for switching between pod and linlook decoder)
         self.speeds = []  # keeps track of agent's speed (value) at each time step
         self.goal_vector_array = []  # keeps track of agent's goal vector at each time step
-        self.save_position_and_speed()  # save initial configuration
 
         self.buildDataSet = build_data_set  # when true create camera images
         self.images = []  # if buildDataSet: collect images
+        self.frame_limit = frame_limit
+
+        self.save_position_and_speed()  # save initial configuration
 
         self.max_speed = max_speed
 
@@ -197,7 +197,7 @@ class PybulletEnvironment:
         # threshold for goal_vector length that signals arrival at goal
         self.pod_arrival_threshold = 0.5
         self.lin_look_arrival_threshold = 0.2
-        self.analytical_arrival_threshold = 0.5
+        self.analytical_arrival_threshold = 0.1
 
     def __load_obj(self, objectFilename, textureFilename):
         """load object files with specified texture into the environment"""
@@ -273,6 +273,7 @@ class PybulletEnvironment:
 
         if self.buildDataSet:
             self.images.append(img)
+            self.images = self.images[-self.frame_limit:]
 
         return img
 
@@ -338,6 +339,21 @@ class PybulletEnvironment:
         if self.visualize:
             time.sleep(self.dt / 5)
 
+    def intersect(self, p1, v1, p2, v2):
+        # Calculate determinant
+        det = v1[0] * v2[1] - v1[1] * v2[0]
+
+        # Parallel rays do not intersect
+        if det == 0:
+            return False
+
+        # Calculate the relative position of intersection
+        t = ((p2[0] - p1[0]) * v2[1] - (p2[1] - p1[1]) * v2[0]) / det
+        u = ((p2[0] - p1[0]) * v1[1] - (p2[1] - p1[1]) * v1[0]) / det
+
+        # Check if the intersection is in the direction of both rays
+        return t >= 0 and u >= 0
+
     def navigation_step(self, gc: GridCellNetwork = None, pod=None, obstacles=True):
         """ One navigation step for the agent. 
             Calculate or update the goal vector.
@@ -355,7 +371,7 @@ class PybulletEnvironment:
             self.goal_vector = self.calculate_goal_vector_gc(gc, pod)
 
         if obstacles:
-            obstacle_vector = self.calculate_obstacle_vector()
+            point, obstacle_vector = self.calculate_obstacle_vector()
 
             if np.linalg.norm(np.array(self.goal_vector)) > 0:
                 normed_goal_vector = np.array(self.goal_vector) / np.linalg.norm(
@@ -365,10 +381,9 @@ class PybulletEnvironment:
 
             # combine goal and obstacle vector
             multiple = 1 if vectors_in_one_direction(normed_goal_vector, obstacle_vector) else -1
-            if np.linalg.norm(obstacle_vector) > 5:
-                movement = obstacle_vector
-            else:
-                movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
+            if not self.intersect(self.xy_coordinates[-1], normed_goal_vector, point, obstacle_vector * multiple):
+                multiple = 0
+            movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
         else:
             movement = self.goal_vector
         self.compute_movement(movement)
@@ -427,12 +442,17 @@ class PybulletEnvironment:
         [position, angle] = p.getBasePositionAndOrientation(self.carID)
         angle = p.getEulerFromQuaternion(angle)
         self.xy_coordinates.append(np.array([position[0], position[1]]))
+        self.xy_coordinates = self.xy_coordinates[-self.frame_limit*100:]
         self.orientation_angle.append(angle[2])
+        self.orientation_angle = self.orientation_angle[-self.frame_limit:]
 
         [linear_v, _] = p.getBaseVelocity(self.carID)
         self.xy_speeds.append([linear_v[0], linear_v[1]])
+        self.xy_speeds = self.xy_speeds[-self.frame_limit:]
         self.speeds.append(np.linalg.norm([linear_v[0], linear_v[1]]))
+        self.speeds = self.speeds[-self.frame_limit:]
         self.goal_vector_array.append(self.goal_vector)
+        self.goal_vector_array = self.goal_vector_array[-self.frame_limit:]
         self.nr_ofsteps += 1
 
     def end_simulation(self):
@@ -499,30 +519,23 @@ class PybulletEnvironment:
                 ray_return.append(
                     math.sqrt((hitPosition[0] - rayFrom[i][0]) ** 2 + (hitPosition[1] - rayFrom[i][1]) ** 2))
 
-        return ray_return, ray_angles
+        return ray_return, ray_angles, [it[3] for it in results]
 
     ''' Calculates the obstacle_vector from the ray distances'''
 
     def calculate_obstacle_vector(self):
-        rays, angles = self.ray_detection_egocentric()
+        rays, angles, hit_points = self.ray_detection_egocentric()
         start_index, end_index = closest_subsegment(rays)
+        hit_points = hit_points[start_index:end_index+1]
 
         if end_index < 0:
-            return np.array([0.0, 0.0])
+            return np.array([0, 0]), np.array([0.0, 0.0])
 
         if end_index - start_index + 1 < 5:
             middle_index = (end_index + start_index) // 2
             angle = angles[middle_index]
             direction_vector = np.array([-np.sin(angle), np.cos(angle)])
         else:
-            # Step 1: Calculate the points where the rays hit the obstacles
-            hit_points = []
-            for i, (angle, ray) in enumerate(zip(angles, rays)):
-                if start_index <= i <= end_index:
-                    x = ray * np.cos(angle)  # Calculate x-coordinate of the hit point
-                    y = ray * np.sin(angle)  # Calculate y-coordinate of the hit point
-                    hit_points.append([x, y])
-
             try:
                 # Calculate the slope (m) of the line using linear regression
                 # Step 2: Calculate a straight line using linear regression that fits the best to these points
@@ -541,7 +554,7 @@ class PybulletEnvironment:
                     direction_vector = np.array([1.0, slope])
                     direction_vector /= np.linalg.norm(direction_vector)  # Normalize the direction vector
             except (IndexError, ValueError, np.linalg.LinAlgError):
-                return np.array([0.0, 0.0])
+                return np.array([0.0, 0.0]), np.array([0.0, 0.0])
 
         if rays[end_index] > 0:
             self_point = p.getLinkState(self.carID, 0)[0]
@@ -550,8 +563,8 @@ class PybulletEnvironment:
             end_point = start_point - np.array([direction_vector[0], direction_vector[1], 0])
             self.add_debug_line(start_point, end_point, (0, 0, 0))
 
-        direction_vector = direction_vector * 6 / min(rays[start_index:end_index + 1])
-        return direction_vector
+        direction_vector = direction_vector * 1.5 / min(rays[start_index:end_index + 1])
+        return hit_points[0], direction_vector
 
     def calculate_goal_vector_analytically(self, goal=None):
         """ Uses a precise goal vector. """

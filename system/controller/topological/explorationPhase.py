@@ -55,18 +55,18 @@ def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_netw
                           plot_it=False, exploration_phase=True, pc_network=pc_network, cognitive_map=cognitive_map)
         if plotting and (i + 1) % 100 == 0:
             cognitive_map.draw()
-            cognitive_map.save(filename="full_map.gpickle")
+            cognitive_map.save(filename="partial_with_cleanup.gpickle")
             plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=False)
 
     cognitive_map.draw()
-    cognitive_map.save(filename="full_map.gpickle")
+    cognitive_map.save(filename="partial_with_cleanup.gpickle")
     plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=False)
 
     # plot the trajectory
     # if plotting:
     #     plot.plotTrajectoryInEnvironment(env, pc_network=pc_network)
     env.end_simulation()
-    cognitive_map.postprocess()
+    # cognitive_map.postprocess()
     return pc_network, cognitive_map
 
 
@@ -89,10 +89,10 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
     # TODO Johanna: Future Work: add exploration patterns for all mazes
     if env_model == "Savinov_val3":
         goals = [
-            [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5], [1, -1.5],
+            # [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5], [1, -1.5],
             [0.5, 1.5], [2.5, -1.5], [1.5, 0], [5, -1.5]
-            , [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4],
-            [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
+            # , [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4],
+            # [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
         ]
 
     elif env_model == "Savinov_val2":

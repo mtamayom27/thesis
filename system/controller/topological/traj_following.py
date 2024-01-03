@@ -176,7 +176,7 @@ class TrajectoryFollower(object):
         i = 0
         self.cognitive_map.prior_idx_pc_firing = None
         path_length = 0
-        path_length_limit = 2000
+        path_length_limit = 100
         while i + 1 < len(path) and path_length < path_length_limit:
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
@@ -188,6 +188,8 @@ class TrajectoryFollower(object):
             path_length += 1
             if stop != 1:
                 last_pc, new_path = self.locate_node(env, pc, goal, self.gc_network, self.pod)
+                if not last_pc:
+                    last_pc = path[i]
 
                 if new_path is None:
                     j = 0
@@ -209,6 +211,7 @@ class TrajectoryFollower(object):
             if path_length % 200 == 0 and plotting:
                 plot.plotTrajectoryInEnvironment(env)
 
+        self.cognitive_map.postprocess()
         self.cognitive_map.visited_nodes = []
         if path_length >= path_length_limit:
             print("LIMIT WAS REACHED STOPPING HERE")
@@ -262,7 +265,9 @@ if __name__ == "__main__":
     creation_re_type = "firing"
     connection_re_type = "neural_network"
     weights_file = "no_siamese_mse.50"
-    map_file="cognitive_map_partial.gpickle"
+    map_file="cognitive_map_partial_0.gpickle"
+    # map_file="best_graph_ever.gpickle"
+    # map_file="no_new_nodes_true_0.gpickle"
     # setup
 
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True, map_file=map_file)
@@ -288,25 +293,25 @@ if __name__ == "__main__":
     # tj.navigation(start=88,goal=73)     #too imprecise
     # tj.navigation(start = 73, goal = 65) #corridor path
 
-#     tj.navigation(start=310, goal=308)
-#     tj.cognitive_map.draw()
-#     tj.cognitive_map.save(filename="after_new.gpickle")
-#     print(f"Navigation 0 finished")
-#
-#     tj.navigation(start=0, goal=340)
-#     tj.cognitive_map.draw()
-#     tj.cognitive_map.save(filename="after_new.gpickle")
-#     print(f"Navigation 1 finished")
-
-    # tj.navigation(start=308, goal=309)
+    # [list(tj.cognitive_map.node_network.nodes).index(x) for x in
+    #  tj.cognitive_map.node_network[list(tj.cognitive_map.node_network.nodes)[41]]]
+    # dt = 1e-2
+    # env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
+    # plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
+    # tj.cognitive_map.postprocess()
     # tj.cognitive_map.draw()
-    # tj.cognitive_map.save(filename="after_new.gpickle")
-    # print(f"Navigation 2 finished")
+
     #
+    dt = 1e-2
+    env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
+    # plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
+
     for navigation_i in range(100):
         tj.navigation()
         tj.cognitive_map.draw()
-        tj.cognitive_map.save(filename="after_new.gpickle")
+        tj.cognitive_map.save(filename="no_new_nodes_true.gpickle")
         print(f"Navigation {navigation_i} finished")
-    print("Navigation finished")
+        plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
 
+    # print("Navigation finished")
+    #
