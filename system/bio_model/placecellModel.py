@@ -263,8 +263,8 @@ if __name__ == '__main__':
 
     # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
     cognitive_map = LifelongCognitiveMap(from_data=True, re_type="neural_network", env_model="Savinov_val3",
-                                              weights_file="no_siamese_mse.50", with_spikings=True,
-                                              map_filename="cognitive_map_partial_0.gpickle")
+                                         weights_file="no_siamese_mse.50", with_spikings=True,
+                                         load_data_from="cognitive_map_partial_0.gpickle")
     gc_network = setup_gc_network(1e-2)
     env_model = "Savinov_val3"
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)

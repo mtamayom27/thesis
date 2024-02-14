@@ -100,13 +100,13 @@ class TrajectoryFollower(object):
         self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, weights_file=weights_file)
 
         # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
-        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=with_spikings, map_filename=map_file)
+        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=with_spikings, load_data_from=map_file)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
     
-    def navigation(self, method="combo", start=None, goal=None):
+    def navigation(self, method="combo", start=None, goal=None, cognitive_map_filename="cognitive_map.gpickle"):
         """ Agent navigates through the environment.
 
         arguments:
@@ -168,7 +168,6 @@ class TrajectoryFollower(object):
             plot.plotTrajectoryInEnvironment(env, cognitive_map=self.cognitive_map, path=path)
         # set current grid cell spikings of the agent
         self.gc_network.set_as_current_state(path[0].gc_connections)
-        original_path = list(path)
         last_pc = path[0]
         i = 0
         self.cognitive_map.prior_idx_pc_firing = None
@@ -180,11 +179,7 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model=method,
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=500)
-            # stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="analytical",
-            #                              obstacles=True, exploration_phase=False, pc_network=self.pc_network,
-            #                              pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=100)
-
-            self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1, env=env)
+            self.cognitive_map.track_topological_navigation(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1)
 
             path_length += 1
             if stop != 1:
@@ -203,14 +198,11 @@ class TrajectoryFollower(object):
                     new_path = [path[i]] + new_path
 
                 path[i:] = new_path
-                # plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
             else:
                 last_pc = pc
                 i += 1
             if i == len(path) - 1:
                 break
-            if path_length % 200 == 0 and plotting:
-                plot.plotTrajectoryInEnvironment(env)
 
         self.cognitive_map.postprocess()
         if path_length >= path_length_limit:
@@ -221,22 +213,7 @@ class TrajectoryFollower(object):
             plot.plotTrajectoryInEnvironment(env, goal=False, start=start.env_coordinates, end=goal.env_coordinates)
             plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=self.cognitive_map, start=path[0].env_coordinates, end=path[-1].env_coordinates)
 
-            # fig, ax = plt.subplots()
-
-            # def update(frame):
-            #     ax.clear()
-            #     pos = nx.get_node_attributes(graph_states[frame], 'pos')
-            #     nx.draw(graph_states[frame], pos, with_labels=True, node_color='lightblue', edge_color='gray',
-            #             labels={i: str(list(graph_states[frame].nodes).index(i)) for i in
-            #                     list(graph_states[frame].nodes)}, node_size=60)
-
-            # Create the animation
-            # ani = animation.FuncAnimation(fig, update, frames=len(graph_states), interval=1000)
-
-            # Show the animation
-            # plt.show()
-            # save_graphs_to_csv(graph_states)
-            # write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
+        self.cognitive_map.save(filename=cognitive_map_filename)
         return path_length < path_length_limit, start_ind, goal_ind
 
     def locate_node(self, env, pc, goal, gc_network=None, pod_network=None):
