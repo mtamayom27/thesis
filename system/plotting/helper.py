@@ -6,7 +6,7 @@ import networkx as nx
 from matplotlib import pyplot as plt
 
 
-def plot_cognitive_map_path(G, path, env, color="#E3722280"):
+def plot_cognitive_map_path(G, path, env, color="#E37222"):
     """ plot the path on the cognitive map """
     import system.plotting.plotHelper as pH  # import add_environment
 

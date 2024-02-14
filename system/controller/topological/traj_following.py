@@ -110,7 +110,7 @@ class TrajectoryFollower(object):
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
     
-    def navigation(self, start=None, goal=None):
+    def navigation(self, method="combo", start=None, goal=None):
         """ Agent navigates through the environment.
 
         arguments:
@@ -128,15 +128,19 @@ class TrajectoryFollower(object):
 
         # Plan a topological path through the environment,
         # if no such path exists choose random start and goal until a path is found
+        start_ind = start
         if start is None:
             start = np.random.choice(list(self.cognitive_map.node_network.nodes))
+            start_ind = list(self.cognitive_map.node_network).index(start)
             # print("start_index", list(self.cognitive_map.node_network).index(start))
         else:
             start = list(self.cognitive_map.node_network.nodes)[start]
 
+        goal_ind = goal
         if goal is None:
             while not goal or goal == start:
                 goal = np.random.choice(list(self.cognitive_map.node_network.nodes))
+            goal_ind = list(self.cognitive_map.node_network).index(goal)
             # print("goal_index", list(self.cognitive_map.node_network).index(goal))
         else:
             goal = list(self.cognitive_map.node_network.nodes)[goal]
@@ -176,13 +180,17 @@ class TrajectoryFollower(object):
         i = 0
         self.cognitive_map.prior_idx_pc_firing = None
         path_length = 0
-        path_length_limit = 100
+        path_length_limit = 30
         while i + 1 < len(path) and path_length < path_length_limit:
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
-            stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="analytical",
+            stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model=method,
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
-                                         pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=1000)
+                                         pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=500)
+            # stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model="analytical",
+            #                              obstacles=True, exploration_phase=False, pc_network=self.pc_network,
+            #                              pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=100)
+
             self.cognitive_map.update_map(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1, env=env)
 
             path_length += 1
@@ -218,8 +226,8 @@ class TrajectoryFollower(object):
 
         # plot the agent's trajectory in the environment
         if plotting:
-            plot.plotTrajectoryInEnvironment(env, goal=False)
-            plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=self.cognitive_map)
+            plot.plotTrajectoryInEnvironment(env, goal=False, start=start.env_coordinates, end=goal.env_coordinates)
+            plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=self.cognitive_map, start=path[0].env_coordinates, end=path[-1].env_coordinates)
 
             # fig, ax = plt.subplots()
 
@@ -237,6 +245,7 @@ class TrajectoryFollower(object):
             # plt.show()
             # save_graphs_to_csv(graph_states)
             # write_kwargs_to_file(path=[waypoint.env_coordinates for waypoint in path], positions=positions)
+        return path_length < path_length_limit, start_ind, goal_ind
 
     def locate_node(self, env, pc, goal, gc_network=None, pod_network=None):
         new_node = True
@@ -265,53 +274,34 @@ if __name__ == "__main__":
     creation_re_type = "firing"
     connection_re_type = "neural_network"
     weights_file = "no_siamese_mse.50"
-    map_file="cognitive_map_partial_0.gpickle"
+    # map_file="cognitive_map_partial_0.gpickle"
     # map_file="best_graph_ever.gpickle"
-    # map_file="no_new_nodes_true_0.gpickle"
+    map_file="final_sparse_explo_combo_0.gpickle"
+    # map_file="bio_inspired_new_3.gpickle"
+    # map_file = "new_area_explo_4.gpickle"
+    # map_file="new_area_bio_inspired_0.gpickle"
+    # map_file = "best_old_area_bio_1.gpickle"
     # setup
 
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True, map_file=map_file)
-    # tj.navigation(start=97, goal=14)
-    # tj.navigation(start=87, goal=100)
-    # tj.navigation(start=111, goal=119)
-    # tj.navigation(start=67, goal=84)
-    # example navigation trials
-    # tj.navigation(start=110,goal=108)   # Figure 6.13 (a): success, bad path
-    # tj.navigation(start=120,goal=110)   # Figure 6.13 (b): success, not on explore path
-    # tj.navigation(start=112,goal=13)    # Figure 6.13 (c): short success
 
-    # tj.navigation(start=23,goal=30)      # Figure 6.14 (a): too imprecise
-    # tj.navigation(start=103,goal=30)     # Figure 6.14 (b): too imprecise
-    # tj.navigation(start=20,goal=27)      # Figure 6.14 (c): failure, agent too imprecise
-
-    # tj.navigation(start=122,goal=8)     # Figure 6.16: circles
-
-    # tj.navigation(start=22,goal=106)    #failure, too imprecise
-    # tj.navigation(start=115,goal=30)    #failure, too imprecise
-    # tj.navigation(start=123,goal=127)   #success, very basic example of a shortcut?
-    # tj.navigation(start=127,goal=26)    #failure, circle
-    # tj.navigation(start=88,goal=73)     #too imprecise
-    # tj.navigation(start = 73, goal = 65) #corridor path
-
-    # [list(tj.cognitive_map.node_network.nodes).index(x) for x in
-    #  tj.cognitive_map.node_network[list(tj.cognitive_map.node_network.nodes)[41]]]
-    # dt = 1e-2
-    # env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
-    # plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
-    # tj.cognitive_map.postprocess()
-    # tj.cognitive_map.draw()
-
-    #
     dt = 1e-2
     env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
     # plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
-
+    #
+    # G = tj.cognitive_map.node_network.copy()
+    successful = 0
     for navigation_i in range(100):
-        tj.navigation()
+        success, start, end = tj.navigation(method="combo")
+        if success:
+            successful += 1
         tj.cognitive_map.draw()
-        tj.cognitive_map.save(filename="no_new_nodes_true.gpickle")
+        tj.cognitive_map.save(filename="best_old_area_bio_new.gpickle")
         print(f"Navigation {navigation_i} finished")
         plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
 
-    # print("Navigation finished")
-    #
+    print(f"{successful} successful navigations")
+    # plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=tj.cognitive_map, trajectory=False)
+
+    print("Navigation finished")
+

@@ -624,8 +624,6 @@ class PybulletEnvironment:
         if self.mode == "analytical":
             return self.calculate_goal_vector_analytically(goal)
         elif pod_network:
-            if goal is not None:
-                print("This mode is not implemented yet!")
             return self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
 
         return np.zeros((2))

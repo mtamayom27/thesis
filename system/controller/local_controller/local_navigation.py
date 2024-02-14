@@ -185,7 +185,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                                                                         env.xy_coordinates[-1], exploration_phase)
 
             new_pc_last = cognitive_map.track_movement(firing_values, created_new_pc, pc_network.place_cells[-1], env=env, exploration_phase=exploration_phase, pc_network=pc_network)
-            if new_pc_last:
+            if new_pc_last is not None:
                 pc_last = new_pc_last
 
         status = env.get_status()

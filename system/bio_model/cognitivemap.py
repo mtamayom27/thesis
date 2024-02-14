@@ -49,7 +49,7 @@ def print_debug(*params):
 
 
 class CognitiveMapInterface:
-    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename="cognitive_map_partial.gpickle"):
+    def __init__(self, from_data=False, re_type="distance", env_model=None, weights_file=None, with_spikings=False, map_filename=None):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -108,14 +108,14 @@ class CognitiveMapInterface:
         self.node_network.add_edge(p, q, weight=w, **kwargs)
         self.node_network.add_edge(q, p, weight=w, **kwargs)
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
+    def save(self, relative_folder="data/cognitive_map", filename=None):
         """ Store the current state of the node_network """
         directory = os.path.join(get_path_top(), "data/cognitive_map")
         if not os.path.exists(directory):
             os.makedirs(directory)
         nx.write_gpickle(self.node_network, os.path.join(directory, filename))
 
-    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
+    def load(self, relative_folder="data/cognitive_map", filename=None):
         """ Load existing cognitive map """
         directory = os.path.join(get_path_top(), relative_folder)
         if not os.path.exists(directory):
@@ -131,10 +131,10 @@ class CognitiveMapInterface:
         pos = nx.get_node_attributes(G, 'pos')
 
         # Plots the nodes with index labels
-        nx.draw(G, pos, labels={i: str(list(G.nodes).index(i)) for i in list(G.nodes)})
+        # nx.draw(G, pos, labels={i: str(list(G.nodes).index(i)) for i in list(G.nodes)})
 
         # Plots the graph without labels
-        # nx.draw(G, pos, node_color='#0065BD', node_size=50, edge_color='#4A4A4A')
+        nx.draw(G, pos, node_color='#0065BD', node_size=120, edge_color='#4A4A4A80', width=2)
         plt.show()
 
     def postprocess(self):
@@ -249,7 +249,7 @@ class CognitiveMap(CognitiveMapInterface):
 
             self.prior_idx_pc_firing = idx_pc_active
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
+    def save(self, relative_folder="data/cognitive_map", filename=None):
         CognitiveMapInterface.save(self)
         directory = os.path.join(get_path_top(), relative_folder)
 
@@ -353,7 +353,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             env_model=None,
             weights_file=None,
             with_spikings=False,
-            map_filename="cognitive_map_partial.gpickle"
+            map_filename=None
     ):
         self.trajectory_nodes: [PlaceCell] = []
         self.sigma = 0.015
@@ -374,7 +374,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.number_of_edges_threshold = 3  # max number of edges a node to be deleted has
         self.angle_threshold = math.pi * 20 / 180  # if the edges have different angle that might be a corner
 
-        self.add_nodes = False  # makes sense in the beginning when there are gaps
+        self.add_nodes = True  # makes sense in the beginning when there are gaps
         # todo no idea how to use it right now
 
         self.visited_nodes = []
@@ -400,10 +400,10 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 self.process_edge(pc_firing, pc_network)
             # if self.remove_nodes:
             #     self.count_traffic(idx_pc_active, pc_network, env)
-            self.prior_idx_pc_firing = idx_pc_active
-        if np.max(pc_firing) > 0.9:
+            # self.prior_idx_pc_firing = idx_pc_active
+        if np.max(pc_firing) > self.active_threshold:
             self.prior_idx_pc_firing = np.argmax(pc_firing)
-        if self.prior_idx_pc_firing:
+        if self.prior_idx_pc_firing is not None:
             return pc_network.place_cells[self.prior_idx_pc_firing]
         return None
 
@@ -528,7 +528,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                            connectivity_probability=connectivity_probability, mu=1-reachability_weight,
                                            sigma=self.sigma)
 
-    def save(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle", return_state=False):
+    def save(self, relative_folder="data/cognitive_map", filename=None, return_state=False):
         # for node in self.trajectory_nodes:
         #     self.add_node_to_map(node)
         filename = filename[:-8] + f'_{self.i}.gpickle'
@@ -538,35 +538,36 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         #     for node in self.trajectory_nodes:
         #         self.node_network.remove_node(node)
 
-    def load(self, relative_folder="data/cognitive_map", filename="cognitive_map_partial.gpickle"):
+    def load(self, relative_folder="data/cognitive_map", filename=None):
         CognitiveMapInterface.load(self, relative_folder, filename)
         #self.clean_single_nodes()
 
     def update_map(self, node_p, node_q, observation_p, observation_q, success, env=None):
         if node_q == node_p:
             return
-        if success and self.add_edges and node_p in self.node_network and node_q in self.node_network and node_q not in self.node_network[node_p]:
-            print(f"adding edge {self.edge_add_i} [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]")
-            self.edge_add_i += 1
-            self.add_bidirectional_edge_to_map(node_p, node_q,
-                                               sample_normal(0.5, self.sigma),
-                                               connectivity_probability=0.8,
-                                               mu=0.5,
-                                               sigma=self.sigma)
+        # if success and self.add_edges and node_p in self.node_network and node_q in self.node_network and node_q not in self.node_network[node_p]:
+        #     print(f"adding edge {self.edge_add_i} [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]")
+        #     self.edge_add_i += 1
+        #     self.add_bidirectional_edge_to_map(node_p, node_q,
+        #                                        sample_normal(0.5, self.sigma),
+        #                                        connectivity_probability=0.8,
+        #                                        mu=0.5,
+        #                                        sigma=self.sigma)
         if not success and observation_q not in self.node_network and self.add_nodes:
             self.add_node_to_network(observation_q)
+        if self.add_edges:
             if observation_p != observation_p and observation_p in self.node_network and observation_p not in self.node_network[observation_q]:
                 self.add_bidirectional_edge_to_map(observation_p, observation_q,
                                                    sample_normal(0.5, self.sigma),
                                                    connectivity_probability=0.8,
                                                    mu=0.5,
                                                    sigma=self.sigma)
-            if node_p != observation_q and node_p in self.node_network and node_p not in self.node_network[observation_q]:
-                self.add_bidirectional_edge_to_map(node_p, observation_q,
-                                                   sample_normal(0.5, self.sigma),
-                                                   connectivity_probability=0.8,
-                                                   mu=0.5,
-                                                   sigma=self.sigma)
+            # if node_p != observation_q and node_p in self.node_network and node_p not in self.node_network[observation_q]:
+            #     self.add_bidirectional_edge_to_map(node_p, observation_q,
+            #                                        sample_normal(0.5, self.sigma),
+            #                                        connectivity_probability=0.8,
+            #                                        mu=0.5,
+            #                                        sigma=self.sigma)
 
         if node_p not in self.node_network or node_q not in self.node_network[node_p]:
             return
@@ -591,7 +592,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
         if not success and self.remove_edges:
             if self.process_remove_edge(connectivity_probability, node_p, node_q):
-                self.save(filename="no_new_nodes_true.gpickle")
+                self.save(filename="bio_inspired.gpickle")
                 return
 
         # Update distance weight
@@ -615,7 +616,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['weight'] = weight
 
         print(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
-        self.save(filename="no_new_nodes_true.gpickle")
+        self.save(filename="bio_inspired.gpickle")
         return
 
     def process_remove_edge(self, connectivity_probability, node_p, node_q):
@@ -684,7 +685,7 @@ if __name__ == "__main__":
     connection = ("radius", "delayed")
     weights_filename = "no_siamese_mse.50"
     # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
-    map_filename = "no_new_nodes_true.gpickle"
+    map_filename = "bio_inspired.gpickle"
     env_model = "Savinov_val3"
     cm = LifelongCognitiveMap(from_data=True, re_type=connection_re_type, env_model=env_model, weights_file=weights_filename, map_filename=map_filename)
 

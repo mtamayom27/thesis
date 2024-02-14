@@ -83,7 +83,7 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.show()
 
 
-def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None, goal=True, trajectory=True):
+def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None, goal=True, trajectory=True, start=None, end=None):
     if not xy_coordinates:
         xy_coordinates = env.xy_coordinates
 
@@ -117,10 +117,16 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
             nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
             G = G.to_undirected()
             nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='#E3722280', width=3)
+    if start is not None:
+        circle = plt.Circle((start[0], start[1]), 0.2, color=TUM_colors['TUMAccentOrange'], alpha=0.8)
+        ax.add_artist(circle)
+
+        circle = plt.Circle((end[0], end[1]), 0.2, color=TUM_colors['TUMAccentOrange'], alpha=0.8)
+        ax.add_artist(circle)
 
     if trajectory:
         x, y = zip(*xy_coordinates)
-        ax.scatter(x, y, color=TUM_colors['TUMBlue'], s=10, linewidths=0.5)
+        ax.scatter(x, y, color='#992225', s=10, linewidths=0.5)
 
     add_environment(ax, env)
 
