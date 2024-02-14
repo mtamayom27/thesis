@@ -9,22 +9,17 @@
 ***************************************************************************************
 '''
 import math
-import time
 import networkx as nx
 import numpy as np
 
 import sys
 import os
 
-from memory_profiler import profile
-
-from system.plotting.helper import plot_cognitive_map_path
-from system.plotting.plotThesis import plot_grid_cell
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from system.utils import sample_normal
 from system.bio_model.placecellModel import PlaceCell
 from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+import system.plotting.plotResults as plot
 
 
 def get_path_re():
@@ -446,7 +441,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 if self.node_network[node][neighbor]['length'] > self.edge_length_threshold or \
                         self.node_network[neighbor][node]['length'] > self.edge_length_threshold:
                     continue
-                plot_cognitive_map_path(self.node_network, [pc], env, '#F542B080')
                 print(f"ALL NEIGHBORS ARE TOO CLOSE, DELETING {idx}")
                 self.remove_node(pc)
 

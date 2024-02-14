@@ -73,7 +73,7 @@ def vectors_in_one_direction(v1, v2) -> bool:
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
-    def __init__(self, visualize, dt, env_model, mode, build_data_set=False, start=None, orientation=False, frame_limit=5000):
+    def __init__(self, visualize, dt, env_model, mode, build_data_set=False, start=None, orientation=-np.pi/2, frame_limit=5000):
         """ Create environment.
         
         arguments:
@@ -365,6 +365,9 @@ class PybulletEnvironment:
         pod         -- phase offset decode network for goal vector calculation
         obstacles   -- if true use obstacle avoidance
         """
+        obstacle_vector=None
+        point=None
+        multiple=1
         if self.mode == "analytical":
             self.goal_vector = self.calculate_goal_vector_analytically()
         else:
@@ -393,6 +396,7 @@ class PybulletEnvironment:
             xy_speed = self.xy_speeds[-1]
             gc.track_movement(xy_speed)
         self.camera()
+        return point, obstacle_vector, movement
 
     def compute_angle(self, vec_1, vec_2):
         length_vector_1 = np.linalg.norm(vec_1)
@@ -687,13 +691,13 @@ if __name__ == "__main__":
     - Savinov_val3
     """
     # env_model = "plane"
-    # env_model = "obstacle_map_1"
+    env_model = "obstacle_map_0"
     # env_model = "Savinov_test7"
     # env_model = "Savinov_val2"
-    env_model = "Savinov_val3"
+    # env_model = "Savinov_val3"
 
     dt = 1e-2
-    env = PybulletEnvironment(True, dt, env_model, mode="keyboard")
+    env = PybulletEnvironment(True, dt, env_model, mode="keyboard", start=[-1, -2])
     env.keyboard_simulation()
 
     # plot the agent's trajectory in the environment

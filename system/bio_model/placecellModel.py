@@ -8,11 +8,18 @@
 *
 ***************************************************************************************
 '''
+from random import random
+
+import networkx as nx
 import numpy as np
 import types
 
 import sys
 import os
+
+from matplotlib import pyplot as plt
+
+from system.plotting.plotHelper import add_environment, TUM_colors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -244,3 +251,49 @@ class PlaceCellNetwork:
         np.save(os.path.join(directory, "gc_connections" + filename + ".npy"), gc_connections)
         np.save(os.path.join(directory, "env_coordinates" + filename + ".npy"), env_coordinates)
         np.save(os.path.join(directory, "observations" + filename + ".npy"), observations)
+
+if __name__ == '__main__':
+    from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
+    from system.bio_model.cognitivemap import LifelongCognitiveMap
+    from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+
+    # setup place cell network, cognitive map and grid cell network (from data)
+    pc_network = PlaceCellNetwork(from_data=True, re_type="firing", weights_file="no_siamese_mse.50")
+
+    # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
+    cognitive_map = LifelongCognitiveMap(from_data=True, re_type="neural_network", env_model="Savinov_val3",
+                                              weights_file="no_siamese_mse.50", with_spikings=True,
+                                              map_filename="cognitive_map_partial_0.gpickle")
+    gc_network = setup_gc_network(1e-2)
+    env_model = "Savinov_val3"
+    pod = PhaseOffsetDetectorNetwork(16, 9, 40)
+    dt = 1e-2
+
+
+    for i in range(1):
+        fr = list(cognitive_map.node_network.nodes)[random.randint(0, len(list(cognitive_map.node_network.nodes)) - 1)]
+        to = list(cognitive_map.node_network.nodes)[random.randint(0, len(list(cognitive_map.node_network.nodes)) - 1)]
+        env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True,
+                                  start=list(fr.env_coordinates))
+        gc_network.set_as_current_state(fr.gc_connections)
+        stop, pc = vector_navigation(env, list(to.env_coordinates), gc_network, to.gc_connections, model="combo",
+                                 obstacles=True, exploration_phase=False, pc_network=pc_network,
+                                 pod=pod, cognitive_map=cognitive_map, plot_it=True, step_limit=1000)
+
+        fig, ax = plt.subplots()
+
+        if cognitive_map:
+            G = cognitive_map.node_network
+            pos = nx.get_node_attributes(G, 'pos')
+            nx.draw(G,pos,node_color='#0065BD',node_size=10)
+            G = G.to_undirected()
+            nx.draw_networkx_nodes(G, pos, node_color='#0065BD60', node_size=40)
+            nx.draw_networkx_edges(G, pos, edge_color='#99999980')
+        if pc:
+            circle2 = plt.Circle((pc.env_coordinates[0], pc.env_coordinates[1]), 0.2, color=TUM_colors['TUMAccentGreen'], alpha=1)
+            ax.add_artist(circle2)
+        circle1 = plt.Circle((env.xy_coordinates[-1][0], env.xy_coordinates[-1][1]), 0.2, color=TUM_colors['TUMAccentOrange'], alpha=1)
+        ax.add_artist(circle1)
+        add_environment(ax, env)
+        plt.show()

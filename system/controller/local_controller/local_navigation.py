@@ -12,8 +12,6 @@
 import os
 import sys
 
-from memory_profiler import profile
-
 from system.bio_model.cognitivemap import CognitiveMapInterface
 from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
 
@@ -215,7 +213,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
         n += 1
 
     if plot_it:
-        plot.plotTrajectoryInEnvironment(env, title=end_state)
+        plot.plotTrajectoryInEnvironment(env, title=end_state)#, vects=[(obstacle_vector, "#FF5F1F", point), (movement / np.linalg.norm(movement), "#39FF14")])
 
     if collect_data_traj:
         return status, data
@@ -420,6 +418,33 @@ if __name__ == "__main__":
     elif experiment == "obstacle_avoidance":
 
         def three_trials(model, working_combinations, num_ray_dir, cone, mapping, combine):
+            """ TRIAL 0 -----------------------------------------------------------------------------------------------------------------------"""
+            start = [-1, -2]
+            goal = [1.5, 1.25]
+            env_model = "obstacle_map_0"
+
+            # initialize grid cell network and create target spiking
+            if model == "combo":
+                gc_network = setup_gc_network(1e-2)
+                target_spiking = create_gc_spiking(start, goal)
+            else:
+                gc_network = None
+                target_spiking = None
+
+            env = PybulletEnvironment(False, 1e-2, env_model, "analytical", start=start)
+
+            env.mapping = mapping
+            env.combine = combine
+            env.num_ray_dir = num_ray_dir
+            env.tactile_cone = cone
+
+            over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
+                                        plot_it=True, step_limit=10000, obstacles=True)
+            # if over != 1: return
+            print("here", over, mapping, combine, num_ray_dir, cone)
+
+            nr_steps = env.nr_ofsteps
+
             """ TRIAL 1 -----------------------------------------------------------------------------------------------------------------------"""
             start = [-1, -2]
             goal = [0, 2]

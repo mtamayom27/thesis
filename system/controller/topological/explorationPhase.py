@@ -111,7 +111,7 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
     cognitive_map = LifelongCognitiveMap(re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=True)
 
     pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map)
-
+    cognitive_map.postprocess()
     # save place cell network and cognitive map
     pc_network.save_pc_network()
     cognitive_map.postprocess()
@@ -120,6 +120,10 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
     # draw the cognitive map
     if plotting:
         cognitive_map.draw()
+
+        dt = 1e-2
+        env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
+        plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=False)
 
 
 if __name__ == "__main__":

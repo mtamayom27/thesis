@@ -6,11 +6,7 @@ import csv
 import json
 import networkx as nx
 
-from matplotlib import pyplot as plt, animation
-from memory_profiler import profile
-
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
-from system.plotting.helper import plot_cognitive_map_path
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -92,7 +88,7 @@ def write_kwargs_to_file(file_path='data/history.txt', **kwargs):
 
 
 class TrajectoryFollower(object):
-    def __init__(self, env_model, creation_type, connection_type, weights_file=None, with_spikings=False, map_file="cognitive_map_partial.gpickle"):
+    def __init__(self, env_model, creation_type, connection_type, weights_file=None, with_spikings=False, map_file="tmp_graph_building.gpickle"):
         """ Handles interactions between local controller and cognitive_map to navigate the environment.
 
         arguments:
@@ -169,10 +165,7 @@ class TrajectoryFollower(object):
 
         # draw path on the cognitive map
         if plotting:
-            plot_cognitive_map_path(self.cognitive_map.node_network, path, env)
-            graph_states = [nx.DiGraph(self.cognitive_map.node_network)]
-            positions = [path[0]]
-
+            plot.plotTrajectoryInEnvironment(env, cognitive_map=self.cognitive_map, path=path)
         # set current grid cell spikings of the agent
         self.gc_network.set_as_current_state(path[0].gc_connections)
         original_path = list(path)
@@ -220,7 +213,6 @@ class TrajectoryFollower(object):
                 plot.plotTrajectoryInEnvironment(env)
 
         self.cognitive_map.postprocess()
-        self.cognitive_map.visited_nodes = []
         if path_length >= path_length_limit:
             print("LIMIT WAS REACHED STOPPING HERE")
 
