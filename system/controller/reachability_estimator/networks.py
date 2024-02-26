@@ -17,10 +17,10 @@ from torch.autograd import Variable
 from torchmetrics import MeanSquaredError
 
 
-def initialize_siamese(model='spikings'):
+def initialize_siamese():
     nets = {}
 
-    net = GridCellNetwork()
+    net = GridCellSiameseNetwork()
     nets["grid_cell_network"] = {
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-3, eps=1.0e-5)
@@ -29,10 +29,8 @@ def initialize_siamese(model='spikings'):
     return nets
 
 
-def initialize_cnn(model_variant='pair_conv'):
-
+def initialize_cnn(model_variant='convolutional'):
     # Defining the NN and optimizers
-    nets = {}
     if model_variant == "pair_conv":
         input_dim = 512
     elif model_variant == "with_dist":
@@ -42,23 +40,7 @@ def initialize_cnn(model_variant='pair_conv'):
     else:
         input_dim = 5120
 
-    net = AngleRegression(init_scale=1.0, no_weight_init=False)
-    nets["angle_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = PositionRegression(init_scale=1.0, no_weight_init=False)
-    nets["position_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
-
-    net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
-    nets["reachability_regression"] = {
-        'net': net,
-        'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-    }
+    nets = initialize_regressors({})
 
     net = FCLayers(init_scale=1.0, input_dim=input_dim, no_weight_init=False)
     nets["fully_connected"] = {
@@ -78,38 +60,32 @@ def initialize_cnn(model_variant='pair_conv'):
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
 
-    if model_variant == 'spikings':
-        net = SiameseNetwork()
-        nets["spikings_encoder"] = {
-            'net': net,
-            'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
-        }
-
     return nets
 
 
-def initialize_res_net(model_variant='pair_conv'):
-    # Defining the NN and optimizers
-    nets = {}
-    input_dim = 64
-
+def initialize_regressors(nets):
     net = AngleRegression(init_scale=1.0, no_weight_init=False)
     nets["angle_regression"] = {
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
-
     net = PositionRegression(init_scale=1.0, no_weight_init=False)
     nets["position_regression"] = {
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
-
     net = ReachabilityRegression(init_scale=1.0, no_weight_init=False)
     nets["reachability_regression"] = {
         'net': net,
         'opt': torch.optim.Adam(net.parameters(), lr=3.0e-4, eps=1.0e-5)
     }
+    return nets
+
+
+def initialize_res_net():
+    # Defining the NN and optimizers
+    input_dim = 64
+    nets = initialize_regressors({})
 
     net = FcWithDropout(init_scale=1.0, input_dim=input_dim * 2, no_weight_init=False)
     nets["fully_connected"] = {
@@ -130,19 +106,18 @@ def initialize_res_net(model_variant='pair_conv'):
     return nets
 
 
-def initialize_network(backbone='convolutional', model_variant='pair_conv'):
+def initialize_network(backbone='convolutional', model_variant='convolutional'):
     if backbone == 'convolutional':
         return initialize_cnn(model_variant)
     elif backbone == 'res_net':
-        return initialize_res_net(model_variant)
+        return initialize_res_net()
     elif backbone == 'grid_cell':
-        return initialize_siamese(model_variant)
+        return initialize_siamese()
     else:
         raise ValueError("Backbone not implemented")
 
 
 compare_mse = MeanSquaredError()
-
 module_weights = torch.FloatTensor([32, 16, 8, 4, 2, 1])
 
 
@@ -267,9 +242,9 @@ def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_tr
         return get_grid_cell(batch_src_spikings, batch_dst_spikings), None, None
 
 
-class GridCellNetwork(nn.Module):
+class GridCellSiameseNetwork(nn.Module):
     def __init__(self, no_weight_init=False):
-        super(GridCellNetwork, self).__init__()
+        super(GridCellSiameseNetwork, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=3, stride=1, padding=1)
         self.relu1 = nn.ReLU()

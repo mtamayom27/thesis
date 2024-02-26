@@ -35,17 +35,8 @@ def get_path_top():
     return dirname
 
 
-debug = True  # if True: print debug output
-
-
-def print_debug(*params):
-    """ output only when in debug mode """
-    if debug:
-        print(*params)
-
-
 class CognitiveMapInterface:
-    def __init__(self, reachability_estimator=None, load_data_from=None):
+    def __init__(self, reachability_estimator=None, load_data_from=None, debug=True):
         """ Cognitive map representation of the environment.
 
         arguments:
@@ -61,6 +52,7 @@ class CognitiveMapInterface:
             self.load(filename=load_data_from)
         self.active_threshold = 0.9
         self.prior_idx_pc_firing = None
+        self.debug = debug
 
     def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         pass
@@ -124,6 +116,11 @@ class CognitiveMapInterface:
             nx.draw(self.node_network, pos, node_color='#0065BD', node_size=120, edge_color='#4A4A4A80', width=2)
         plt.show()
 
+    def print_debug(self, *params):
+        """ output only when in debug mode """
+        if self.debug:
+            print(*params)
+
     def postprocess(self):
         pass
 
@@ -133,7 +130,7 @@ class CognitiveMapInterface:
 
 class CognitiveMap(CognitiveMapInterface):
     def __init__(self, reachability_estimator=None, mode="exploration", connection=("all", "delayed"),
-                 load_data_from=None):
+                 load_data_from=None, debug=False):
         """ Cognitive map representation of the environment. 
         
         arguments:
@@ -149,7 +146,7 @@ class CognitiveMap(CognitiveMapInterface):
                                         or every node is connected to other nodes as soon as it is created
         env_model   -- only needed when the reachability estimation is handled by simulation
         """
-        super().__init__(reachability_estimator, load_data_from=load_data_from)
+        super().__init__(reachability_estimator, load_data_from=load_data_from, debug=debug)
 
         self.connection = connection
 
@@ -161,7 +158,7 @@ class CognitiveMap(CognitiveMapInterface):
         """ Update reachability between the nodes. """
         nr_nodes = len(list(self.node_network.nodes))
         for i, p in enumerate(list(self.node_network.nodes)):
-            print_debug("currently updating node " + str(i))
+            self.print_debug("currently updating node " + str(i))
             progress_str = "Progress: " + str(int((i + 1) * 100 / nr_nodes)) + "%"
             print(progress_str)
 
@@ -205,9 +202,9 @@ class CognitiveMap(CognitiveMapInterface):
 
         if self.connection[1] == "instant":
             # Connect the new node to all other nodes in the graph
-            print_debug("connecting new node")
+            self.print_debug("connecting new node")
             self._connect_single_node(p)
-            print_debug("connecting finished")
+            self.print_debug("connecting finished")
 
     def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Keeps track of curren/t place cell firing and creation of new place cells"""
@@ -330,8 +327,10 @@ class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(
             self,
             reachability_estimator=None,
-            load_data_from=None
+            load_data_from=None,
+            debug=False
     ):
+        super().__init__(reachability_estimator, load_data_from=load_data_from, debug=debug)
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
         self.threshold_edge_removal = 0.5
@@ -344,7 +343,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.add_nodes = True
 
         self.merged = {}
-        super().__init__(reachability_estimator, load_data_from=load_data_from)
 
     def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
         """Collects nodes"""
@@ -376,8 +374,9 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 # navigation, q is definitely reachable and the edge gets updated accordingly.
                 q = pc_network.place_cells[self.prior_idx_pc_firing]
                 pc_new = pc_network.place_cells[idx_pc_active]
-                if q in self.node_network and pc_new in self.node_network and q not in self.node_network[pc_new] and q != pc_new:
-                    print_debug(f"adding edge [{self.prior_idx_pc_firing}-{idx_pc_active}]")
+                if q in self.node_network and pc_new in self.node_network and q not in self.node_network[
+                    pc_new] and q != pc_new:
+                    self.print_debug(f"adding edge [{self.prior_idx_pc_firing}-{idx_pc_active}]")
                     self.add_bidirectional_edge_to_map(q, pc_new,
                                                        sample_normal(0.5, self.sigma),
                                                        connectivity_probability=0.8,
@@ -399,7 +398,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         if not success and observation_q not in self.node_network and self.add_nodes:
             self.add_and_connect_node(observation_q)
         if self.add_edges:
-            if observation_p != observation_p and observation_p in self.node_network and observation_p not in self.node_network[observation_q]:
+            if observation_p != observation_p and observation_p in self.node_network and observation_p not in \
+                    self.node_network[observation_q]:
                 self.add_bidirectional_edge_to_map(observation_p, observation_q,
                                                    sample_normal(0.5, self.sigma),
                                                    connectivity_probability=0.8,
@@ -421,7 +421,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
         # Update connectivity
         t = conditional_probability(success, True) * edges[0]['connectivity_probability']
-        connectivity_probability = t / (t + conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
+        connectivity_probability = t / (
+                    t + conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
         connectivity_probability = min(connectivity_probability, 0.95)
         for edge in edges:
             edge['connectivity_probability'] = connectivity_probability
@@ -435,7 +436,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             weight = self.reach_estimator.get_reachability(observation_p, node_q)[1]
             sigma_ij_t_squared = edges[0]['sigma'] ** 2
             mu_ij_t = edges[0]['mu']
-            mu = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (sigma_ij_t_squared + self.sigma_squared)
+            mu = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (
+                        sigma_ij_t_squared + self.sigma_squared)
             sigma = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
             weight = sample_normal(mu, sigma)  # weight ~ N(mu, sigma^2)
 
@@ -444,14 +446,15 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 edge['sigma'] = sigma
                 edge['weight'] = weight
 
-        print_debug(f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+        self.print_debug(
+            f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
 
     def process_remove_edge(self, connectivity_probability, node_p, node_q):
         if connectivity_probability < self.threshold_edge_removal:
             # Prune the edge when p(r_ij^{t+1}|s) < Rp
             self.node_network.remove_edge(node_p, node_q)
             self.node_network.remove_edge(node_q, node_p)
-            print_debug(
+            self.print_debug(
                 f"deleting edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: conn {connectivity_probability}")
             return True
         return False
@@ -463,13 +466,14 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         deleted = []
         for node_p in nodes:
             for node_q in nodes:
-                if node_p in deleted or node_q in deleted or node_q == node_p or node_q not in self.node_network or node_p not in self.node_network or node_p not in self.node_network[node_q]:
+                if node_p in deleted or node_q in deleted or node_q == node_p or node_q not in self.node_network or node_p not in self.node_network or node_p not in \
+                        self.node_network[node_q]:
                     continue
                 set_p = set(self.node_network[node_p])
                 set_q = set(self.node_network[node_q])
                 common = len(set_p.intersection(set_q))
                 if common >= len(set_p) - 2 and common >= len(set_q) - 2 and len(set_p) >= 4 and len(set_q) >= 4:
-                    print_debug(
+                    self.print_debug(
                         f"Nodes {nodes.index(node_p)} and {nodes.index(node_q)} are duplicates, deleting {nodes.index(node_p)}")
                     for neighbor in self.node_network[node_p]:
                         if neighbor not in self.node_network[node_q] and neighbor != node_q:
@@ -511,9 +515,9 @@ if __name__ == "__main__":
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
     weights_filename = "no_siamese_mse.50"
-    # cm = CognitiveMap(from_data=True, re_type=connection_re_type, connection=connection, env_model="Savinov_val3")
     map_filename = "bio_inspired.gpickle"
     env_model = "Savinov_val3"
+    debug = True
 
     weights_filepath = os.path.join(get_path_re(), weights_filename)
     re = init_reachability_estimator(connection_re_type, weights_file=weights_filepath, env_model=env_model,
@@ -539,12 +543,12 @@ if __name__ == "__main__":
         ax.axes.get_xaxis().set_visible(False)
         ax.axes.get_yaxis().set_visible(False)
 
-        ax.imshow(start.observations[-1].transpose(1,2,0))
+        ax.imshow(start.observations[-1].transpose(1, 2, 0))
         ax = fig.add_subplot(1, 2, 2)
         ax.axes.get_xaxis().set_visible(False)
         ax.axes.get_yaxis().set_visible(False)
 
-        ax.imshow(finish.observations[-1].transpose(1,2,0))
+        ax.imshow(finish.observations[-1].transpose(1, 2, 0))
 
         plt.show()
         plt.close()

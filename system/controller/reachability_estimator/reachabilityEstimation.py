@@ -144,7 +144,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
             if isinstance(goal.gc_connections, list):
                 goal.gc_connections = np.array(goal.gc_connections)
             return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]],
-                                                   [spikings_reshape(start.gc_connections.flatten())], [spikings_reshape(np.array(goal.gc_connections).flatten())], batch_size=1)[0]
+                                                   [spikings_reshape(start.gc_connections.flatten())],
+                                                   [spikings_reshape(np.array(goal.gc_connections).flatten())], batch_size=1)[0]
         return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]], batch_size=1)[0]
 
     def predict_reachability_batch(self, starts, goals, src_spikings=None, goal_spikings=None, batch_size=64):

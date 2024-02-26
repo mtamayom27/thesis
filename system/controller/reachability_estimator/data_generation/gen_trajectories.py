@@ -153,7 +153,7 @@ def waypoint_movement(env_model, cam_freq, traj_length, map_layout, gc_network):
                 break
 
             over, data = vector_navigation(env, g, gc_network, model="analytical", step_limit=5000, plot_it=False,
-                                           obstacles=False, collect_data_traj=cam_freq)
+                                           obstacles=False, collect_data_freq=cam_freq)
             samples += data
         if len(samples) > 0:
             start = samples[-1][0]

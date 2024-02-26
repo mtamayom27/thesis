@@ -7,18 +7,24 @@ import json
 import networkx as nx
 
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.bio_model.cognitivemap import LifelongCognitiveMap
 from system.bio_model.placecellModel import PlaceCellNetwork
-from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network, \
-    find_new_goal_vector
+from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network
 import system.plotting.plotResults as plot
 
 # if True plot results
 plotting = True
+
+
+def get_path_re():
+    """ returns path to RE model folder """
+    dirname = os.path.join(os.path.dirname(__file__), "../reachability_estimator/data/models")
+    return dirname
 
 
 def save_graphs_to_csv(graphs, file_path='data/history.csv', edge_attributes=None):
@@ -99,8 +105,10 @@ class TrajectoryFollower(object):
         # setup place cell network, cognitive map and grid cell network (from data)
         self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, weights_file=weights_file)
 
-        # self.cognitive_map = CognitiveMap(from_data=True, re_type=connection_type, mode="navigation", connection=connection, env_model=env_model)
-        self.cognitive_map = LifelongCognitiveMap(from_data=True, re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=with_spikings, load_data_from=map_file)
+        weights_filepath = os.path.join(get_path_re(), weights_file)
+        re = init_reachability_estimator(connection_type, weights_file=weights_filepath, env_model=env_model, with_spikings=True)
+
+        self.cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)

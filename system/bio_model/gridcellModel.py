@@ -65,7 +65,7 @@ def implicit_euler(s0, w, b, tau, dt):
 
 
 # Not used, but defined grid cell spiking equation to be solved with built in numeric solver
-def ds_dt(t, s, w, b, tau):
+def ds_dt(s, w, b, tau):
     f = np.maximum(0, np.tensordot(s, w, axes=1) + b)
     return (f - s) / tau
 

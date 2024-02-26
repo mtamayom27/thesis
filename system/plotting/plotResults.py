@@ -59,7 +59,7 @@ rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 rc('text', usetex=True)
 
 
-def plotTrajectory(xy_coordinates, orientation_angle):
+def plotTrajectory(xy_coordinates):
     x, y = zip(*xy_coordinates)
     plt.figure(1)
     plt.scatter(x, y, s=0.2)
@@ -83,7 +83,8 @@ def plotTrajectory(xy_coordinates, orientation_angle):
     plt.show()
 
 
-def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None, goal=True, trajectory=True, start=None, end=None):
+def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=None, cognitive_map=None, path=None,
+                                goal=True, trajectory=True, start=None, end=None):
     if not xy_coordinates:
         xy_coordinates = env.xy_coordinates
 
@@ -107,12 +108,11 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
     if cognitive_map:
         G = cognitive_map.node_network
         pos = nx.get_node_attributes(G, 'pos')
-        # nx.draw(G,pos,node_color='#0065BD',node_size=10)
         nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=60)
         nx.draw_networkx_edges(G, pos, edge_color='#CCCCC6')
 
         if path:
-            # draw_pathgbf
+            # draw_path
             path_edges = list(zip(path, path[1:]))
             nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='#E3722280', node_size=60)
             G = G.to_undirected()

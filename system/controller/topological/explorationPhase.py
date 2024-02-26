@@ -1,6 +1,8 @@
 import sys
 import os
 
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from system.bio_model.gridcellModel import GridCellNetwork
@@ -62,17 +64,14 @@ def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_netw
     cognitive_map.save(filename="new_area_explo_combo.gpickle")
     plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=False)
 
-    # plot the trajectory
-    # if plotting:
-    #     plot.plotTrajectoryInEnvironment(env, pc_network=pc_network)
     env.end_simulation()
-    # cognitive_map.postprocess()
+    cognitive_map.postprocess()
     return pc_network, cognitive_map
 
 
 def get_path_re():
     """ returns path to RE model folder """
-    dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
+    dirname = os.path.join(os.path.dirname(__file__), "../reachability_estimator/data/models")
     return dirname
 
 
@@ -86,16 +85,12 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
 
     """
 
-    # TODO Johanna: Future Work: add exploration patterns for all mazes
     if env_model == "Savinov_val3":
         goals = [
             [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5], [1, -1.5],
-            [0.5, 1.5], [2.5, -1.5], [1.5, 0], [5, -1.5]
-            , [4.5, -0.5], [-0.5, 0], [-8.5, 3], [-8.5, -4],
-            [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
+            [0.5, 1.5], [2.5, -1.5], [1.5, 0], [5, -1.5], [4.5, -0.5], [-0.5, 0], [-8.5, 3],
+            [-8.5, -4], [-7.5, -3.5], [1.5, -3.5], [-6, -2.5]
         ]
-
-        goals = [[-6.5, 0.5], [-7.5, -2.5], [-8.5, 3.5], [-6, 3.5], [-6, 0.5]]
     elif env_model == "Savinov_val2":
         pass
     elif env_model == "Savinov_test7":
@@ -106,9 +101,11 @@ def exploration_path(env_model, creation_type, connection_type, weights_file):
     gc_network = setup_gc_network(1e-2)
     pc_network = PlaceCellNetwork(re_type=creation_type, weights_file=weights_file)
 
-    # TODO: add setting
-    # cognitive_map = CognitiveMap(re_type=connection_type, connection=connection, env_model=env_model)
-    cognitive_map = LifelongCognitiveMap(re_type=connection_type, env_model=env_model, weights_file=weights_file, with_spikings=True)
+    weights_filepath = os.path.join(get_path_re(), weights_file)
+    re = init_reachability_estimator(connection_type, weights_file=weights_filepath, env_model=env_model,
+                                     debug=debug, with_spikings=True)
+
+    cognitive_map = LifelongCognitiveMap(reachability_estimator=re)
 
     pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map)
     cognitive_map.postprocess()

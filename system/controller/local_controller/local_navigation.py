@@ -42,12 +42,14 @@ def compute_navigation_goal_vector(gc_network, nr_steps, env, model="pod", pod=N
     distance_to_goal_original = np.linalg.norm(env.goal_vector_original)  # length of goal vector at calculation
 
     if (
-            distance_to_goal_original > 0.3 and distance_to_goal / distance_to_goal_original < update_fraction) or nr_steps == 0:
+            distance_to_goal_original > 0.3 and
+            distance_to_goal / distance_to_goal_original < update_fraction
+    ) or nr_steps == 0:
         # Vector-based navigation and agent has traversed a large portion of the goal vector, it is recalculated
         # or it is the first calculation
         find_new_goal_vector(gc_network, env, model, pod=pod)
 
-        # TODO Johanna: adding a turn here could make the local controller more robust
+        # adding a turn here could make the local controller more robust
         # env.turn_to_goal()
     else:
         env.goal_vector = env.goal_vector - np.array(env.xy_speeds[-1]) * env.dt
@@ -112,19 +114,14 @@ def setup_gc_network(dt):
 
 
 def get_observations(env):
-    # TODO Johanna: parameterize context length and delta T
     # observations with context length k=10 and delta T = 3
     observations = env.images[::3][-1:]
-    # reformat observation images
-    # TODO Johanna: Future work: This assumes context length k=10, delta T = 3, outsource into helper function
-    # if len(observations) < 10:
-    #     observations += [observations[-1]] * (10 - len(observations))
     return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
 def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
-                      collect_data_traj=False, collect_data_reachable=False, exploration_phase=False,
+                      collect_data_freq=False, collect_data_reachable=False, exploration_phase=False,
                       pc_network: PlaceCellNetwork = None, cognitive_map: CognitiveMapInterface = None):
     """ 
     Agent navigates towards goal.
@@ -144,15 +141,12 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     plot_it     --  if true: plot the navigation (default false)
     obstacles   --  if true: movement vector is a combination of goal and obstacle vector (default true)
     
-    collect_data_traj -- return necessary data for trajectory generation
+    collect_data_freq -- return necessary data for trajectory generation
     collect_data_reachable  -- return necessary data for reachability dataset generation
     exploration_phase   -- track movement for cognitive map and place cell model (this is a misnomer and also used in the navigation phase)
     """
 
-    if collect_data_traj:
-        freq = collect_data_traj
-        data = []
-
+    data = []
     if model == "combo":
         env.mode = "pod"
     else:
@@ -172,8 +166,9 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
 
     n = 0  # time steps
     stop = False  # stop signal received
+    status = 0
     end_state = ""  # for plotting
-    pc_last = None
+    last_pc = None
     while n < step_limit and not stop:
         env.navigation_step(gc_network, pod, obstacles=obstacles)
 
@@ -182,9 +177,11 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
             [firing_values, created_new_pc] = pc_network.track_movement(gc_network, observations,
                                                                         env.xy_coordinates[-1], exploration_phase)
 
-            new_pc_last = cognitive_map.track_vector_movement(firing_values, created_new_pc, pc_network.place_cells[-1], env=env, exploration_phase=exploration_phase, pc_network=pc_network)
-            if new_pc_last is not None:
-                pc_last = new_pc_last
+            mapped_pc = cognitive_map.track_vector_movement(
+                firing_values, created_new_pc, pc_network.place_cells[-1], env=env,
+                exploration_phase=exploration_phase, pc_network=pc_network)
+            if mapped_pc is not None:
+                last_pc = mapped_pc
 
         status = env.get_status()
         if status == -1:
@@ -205,7 +202,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
 
         # over == 0 -> agent is still moving
 
-        if collect_data_traj and n % freq == 0:
+        if collect_data_freq and n % collect_data_freq == 0:
             # collect grid cell spikings for trajectory generation
             spiking = gc_network.consolidate_gc_spiking().flatten()
             data.append((env.xy_coordinates[-1], env.orientation_angle[-1], spiking))
@@ -213,17 +210,17 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
         n += 1
 
     if plot_it:
-        plot.plotTrajectoryInEnvironment(env, title=end_state)#, vects=[(obstacle_vector, "#FF5F1F", point), (movement / np.linalg.norm(movement), "#39FF14")])
+        plot.plotTrajectoryInEnvironment(env, title=end_state)
 
-    if collect_data_traj:
+    if collect_data_freq:
         return status, data
     if collect_data_reachable:
         return status, [sample_after_turn, first_goal_vector]
 
-    if not pc_last and not exploration_phase and pc_network and cognitive_map.add_nodes:
+    if not last_pc and not exploration_phase and pc_network:
         pc_network.create_new_pc(gc_network.consolidate_gc_spiking(), get_observations(env), env.xy_coordinates[-1])
-        pc_last = pc_network.place_cells[-1]
-    return status, pc_last
+        last_pc = pc_network.place_cells[-1]
+    return status, last_pc
 
 
 if __name__ == "__main__":
@@ -270,9 +267,6 @@ if __name__ == "__main__":
     from system.controller.simulation.pybulletEnv import PybulletEnvironment
 
     if not experiment:
-        # env_model = "plane"
-        # env_model = "Savinov_test7"
-        # env_model = "Savinov_val2"
         env_model = "Savinov_val3"
 
         # Adjust start and goal
@@ -411,9 +405,6 @@ if __name__ == "__main__":
         np.save("experiments/" + name + "/actual_error_goal_array", actual_error_goal_array)
         # Time Cost
         np.save("experiments/" + name + "/time_array", time_array)
-        # np.save("experiments/"+name+"/gc_array", gc_array)
-        # np.save("experiments/"+name+"/position_array", position_array)
-        # np.save("experiments/"+name+"/vectors_array", vector_array)
 
     elif experiment == "obstacle_avoidance":
 
@@ -470,7 +461,7 @@ if __name__ == "__main__":
             # if over != 1: return
             print("here", over, mapping, combine, num_ray_dir, cone)
 
-            nr_steps = env.nr_ofsteps
+            nr_steps += env.nr_ofsteps
 
             """ TRIAL 2 -----------------------------------------------------------------------------------------------------------------------"""
             start = [0, -2]
