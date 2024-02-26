@@ -484,6 +484,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             self.node_network.remove_node(node)
 
     def postprocess(self):
+        self.prior_idx_pc_firing = None
         self.deduplicate_nodes()
 
     def locate_node(self, pc: PlaceCell):
