@@ -112,7 +112,7 @@ class PlaceCell:
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
 
-    def __init__(self, from_data=False, re_type="distance", weights_file=None):
+    def __init__(self, from_data=False, re_type="distance", reach_estimator=None):
         """ Place Cell Network  of the environment. 
         
         arguments:
@@ -124,10 +124,7 @@ class PlaceCellNetwork:
         from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
         self.re_type = re_type
-        filepath = os.path.join(get_path_re(), weights_file)
-
-        if not self.re_type == "firing":
-            self.reach_estimator = init_reachability_estimator(re_type, weights_file=filepath)
+        self.reach_estimator = reach_estimator
 
         # thresholds for place cell creation
         if self.re_type == "distance":
@@ -253,6 +250,7 @@ class PlaceCellNetwork:
         np.save(os.path.join(directory, "env_coordinates" + filename + ".npy"), env_coordinates)
         np.save(os.path.join(directory, "observations" + filename + ".npy"), observations)
 
+
 if __name__ == '__main__':
     from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
     from system.bio_model.cognitivemap import LifelongCognitiveMap
@@ -260,11 +258,12 @@ if __name__ == '__main__':
     from system.controller.simulation.pybulletEnv import PybulletEnvironment
 
     # setup place cell network, cognitive map and grid cell network (from data)
-    pc_network = PlaceCellNetwork(from_data=True, re_type="firing", weights_file="no_siamese_mse.50")
+    weights_file = "mse_weights.50"
+    weights_filepath = os.path.join(get_path_re(), weights_file)
     env_model = "Savinov_val3"
-
-    weights_filepath = os.path.join(get_path_re(), "no_siamese_mse.50")
+    
     re = init_reachability_estimator("neural_network", weights_file=weights_filepath, env_model=env_model, with_spikings=True)
+    pc_network = PlaceCellNetwork(from_data=True, re_type="firing", reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re,
                                          load_data_from="cognitive_map_partial_0.gpickle")
     gc_network = setup_gc_network(1e-2)

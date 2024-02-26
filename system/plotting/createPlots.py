@@ -151,7 +151,7 @@ def create_exploration():
     # see cognitivemap.py
     creation_re_type = "firing"
     connection_re_type = "neural_network"
-    weights_file = "no_siamese_mse.50"
+    weights_file = "mse_weights.50"
 
     tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True, map_file="full_map_sparse_1.gpickle")
 

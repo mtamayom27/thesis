@@ -73,7 +73,7 @@ def vectors_in_one_direction(v1, v2) -> bool:
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
-    def __init__(self, visualize, dt, env_model, mode, build_data_set=False, start=None, orientation=-np.pi/2, frame_limit=5000):
+    def __init__(self, visualize, dt, env_model, mode=None, build_data_set=False, start=None, orientation=-np.pi/2, frame_limit=5000):
         """ Create environment.
         
         arguments:

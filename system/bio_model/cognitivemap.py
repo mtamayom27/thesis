@@ -514,7 +514,7 @@ if __name__ == "__main__":
 
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
-    weights_filename = "no_siamese_mse.50"
+    weights_filename = "mse_weights.50"
     map_filename = "bio_inspired.gpickle"
     env_model = "Savinov_val3"
     debug = True

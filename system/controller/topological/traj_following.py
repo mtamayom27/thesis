@@ -103,17 +103,14 @@ class TrajectoryFollower(object):
         """
 
         # setup place cell network, cognitive map and grid cell network (from data)
-        self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, weights_file=weights_file)
-
         weights_filepath = os.path.join(get_path_re(), weights_file)
-        re = init_reachability_estimator(connection_type, weights_file=weights_filepath, env_model=env_model, with_spikings=True)
-
+        re = init_reachability_estimator(connection_type, weights_file=weights_filepath, env_model=env_model, with_spikings=with_spikings)
+        self.pc_network = PlaceCellNetwork(from_data=True, re_type=creation_type, reach_estimator=re)
         self.cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
         self.gc_network = setup_gc_network(1e-2)
         self.env_model = env_model
         self.pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
-    
     def navigation(self, method="combo", start=None, goal=None, cognitive_map_filename="cognitive_map.gpickle"):
         """ Agent navigates through the environment.
 
@@ -250,7 +247,7 @@ if __name__ == "__main__":
     # see cognitivemap.py
     creation_re_type = "firing"
     connection_re_type = "neural_network"
-    weights_file = "no_siamese_mse.50"
+    weights_file = "mse_weights.50"
     # map_file="cognitive_map_partial_0.gpickle"
     # map_file="best_graph_ever.gpickle"
     map_file="final_sparse_explo_combo_0.gpickle"
