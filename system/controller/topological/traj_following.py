@@ -26,7 +26,7 @@ def get_path_re():
 
 
 class TrajectoryFollower(object):
-    def __init__(self, env_model,
+    def __init__(self, env_model: str,
                  pc_network: PlaceCellNetwork, cognitive_map: CognitiveMapInterface,
                  gc_network: GridCellNetwork, pod: PhaseOffsetDetectorNetwork):
         """ Handles interactions between local controller and cognitive_map to navigate the environment.
@@ -38,7 +38,7 @@ class TrajectoryFollower(object):
         self.env_model = env_model
         self.pod = pod
 
-    def navigation(self, method="combo", start=None, goal=None, cognitive_map_filename=None):
+    def navigation(self, method: str = "combo", start_ind: int = None, goal_ind: int = None, cognitive_map_filename: str = None):
         """ Agent navigates through the environment.
 
         arguments:
@@ -50,20 +50,19 @@ class TrajectoryFollower(object):
 
         # Plan a topological path through the environment,
         # if no such path exists choose random start and goal until a path is found
-        start_ind = start
-        if start is None:
+        if start_ind is None:
             start = np.random.choice(list(self.cognitive_map.node_network.nodes))
             start_ind = list(self.cognitive_map.node_network).index(start)
         else:
-            start = list(self.cognitive_map.node_network.nodes)[start]
+            start = list(self.cognitive_map.node_network.nodes)[start_ind]
 
-        goal_ind = goal
-        if goal is None:
-            while not goal or goal == start:
+        if goal_ind is None:
+            goal = None
+            while goal is None or goal == start:
                 goal = np.random.choice(list(self.cognitive_map.node_network.nodes))
             goal_ind = list(self.cognitive_map.node_network).index(goal)
         else:
-            goal = list(self.cognitive_map.node_network.nodes)[goal]
+            goal = list(self.cognitive_map.node_network.nodes)[goal_ind]
 
         path = self.cognitive_map.find_path(start, goal)
         if not path:
@@ -94,9 +93,9 @@ class TrajectoryFollower(object):
         self.gc_network.set_as_current_state(path[0].gc_connections)
         last_pc = path[0]
         i = 0
-        path_length = 0
+        curr_path_length = 0
         path_length_limit = 30
-        while i + 1 < len(path) and path_length < path_length_limit:
+        while i + 1 < len(path) and curr_path_length < path_length_limit:
             goal_pos = list(path[i + 1].env_coordinates)
             goal_spiking = path[i + 1].gc_connections
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model=method,
@@ -104,7 +103,7 @@ class TrajectoryFollower(object):
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=500)
             self.cognitive_map.track_topological_navigation(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1)
 
-            path_length += 1
+            curr_path_length += 1
             if stop != 1:
                 last_pc, new_path = self.locate_node(env, pc, goal)
                 if not last_pc:
@@ -127,7 +126,7 @@ class TrajectoryFollower(object):
             if i == len(path) - 1:
                 break
 
-        if path_length >= path_length_limit:
+        if curr_path_length >= path_length_limit:
             print("LIMIT WAS REACHED STOPPING HERE")
 
         # plot the agent's trajectory in the environment
@@ -139,7 +138,7 @@ class TrajectoryFollower(object):
         self.cognitive_map.postprocess()
         if cognitive_map_filename is not None:
             self.cognitive_map.save(filename=cognitive_map_filename)
-        return path_length < path_length_limit, start_ind, goal_ind
+        return curr_path_length < path_length_limit, start_ind, goal_ind
 
     def locate_node(self, env, pc, goal):
         closest_node = None
