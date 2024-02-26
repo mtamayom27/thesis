@@ -264,15 +264,14 @@ if __name__ == '__main__':
     
     re = init_reachability_estimator("neural_network", weights_file=weights_filepath, env_model=env_model, with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, re_type="firing", reach_estimator=re)
-    cognitive_map = LifelongCognitiveMap(reachability_estimator=re,
-                                         load_data_from="cognitive_map_partial_0.gpickle")
+    cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from="after_exploration.gpickle")
     gc_network = setup_gc_network(1e-2)
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)
     dt = 1e-2
 
     fr = list(cognitive_map.node_network.nodes)[random.randint(0, len(list(cognitive_map.node_network.nodes)) - 1)]
     to = list(cognitive_map.node_network.nodes)[random.randint(0, len(list(cognitive_map.node_network.nodes)) - 1)]
-    env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True,
+    env = PybulletEnvironment(False, dt, env_model, "combo", build_data_set=True,
                               start=list(fr.env_coordinates))
     gc_network.set_as_current_state(fr.gc_connections)
     stop, pc = vector_navigation(env, list(to.env_coordinates), gc_network, to.gc_connections, model="combo",

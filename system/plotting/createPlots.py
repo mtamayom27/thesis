@@ -3,6 +3,12 @@ import networkx as nx
 from plotThesis import *
 import matplotlib.pyplot as plt
 import tensorflow as tf
+
+from system.bio_model.cognitivemap import LifelongCognitiveMap
+from system.bio_model.placecellModel import PlaceCellNetwork
+from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+from system.controller.local_controller.local_navigation import setup_gc_network
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.controller.topological.traj_following import TrajectoryFollower
@@ -134,7 +140,8 @@ def create_re_plots():
 def create_exploration():
 
     # get the path through the environment
-    mapLayout = MapLayout("Savinov_val3")
+    env_model = "Savinov_val3"
+    mapLayout = MapLayout(env_model)
     path = [
             [-2, 0], [-6, -2.5], [-4, 0.5], [-6.5, 0.5], [-7.5, -2.5], [-2, -1.5], [1, -1.5],
             [0.5, 1.5], [2.5, -1.5], [1.5, 0], [5, -1.5],
@@ -152,8 +159,22 @@ def create_exploration():
     creation_re_type = "firing"
     connection_re_type = "neural_network"
     weights_file = "mse_weights.50"
+    cognitive_map_filename = "after_exploration.gpickle"
 
-    tj = TrajectoryFollower("Savinov_val3", creation_re_type, connection_re_type, weights_file, with_spikings=True, map_file="full_map_sparse_1.gpickle")
+    def get_path_re():
+        """ returns path to RE model folder """
+        dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
+        return dirname
+
+    weights_filepath = os.path.join(get_path_re(), weights_file)
+    re = init_reachability_estimator(connection_re_type, weights_file=weights_filepath, env_model=env_model,
+                                     with_spikings=True)
+    pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
+    cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=cognitive_map_filename)
+    gc_network = setup_gc_network(1e-2)
+    pod = PhaseOffsetDetectorNetwork(16, 9, 40)
+
+    tj = TrajectoryFollower(env_model, pc_network, cognitive_map, gc_network, pod)
 
     G = tj.cognitive_map.node_network.to_undirected()
     S = [G] + [G.subgraph(c).copy() for c in sorted(nx.connected_components(G), key=len, reverse=True)]
@@ -174,7 +195,7 @@ def create_exploration():
                 plt.scatter(x, y, c='#FFD58040')
 
         dt = 1e-2
-        env = PybulletEnvironment(False, dt, "Savinov_val3", "analytical", build_data_set=True)
+        env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True)
 
         G = tj.cognitive_map.node_network
         pos = nx.get_node_attributes(G, 'pos')
