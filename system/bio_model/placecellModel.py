@@ -25,12 +25,6 @@ from system.plotting.plotHelper import add_environment, TUM_colors
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 
-def get_path_re():
-    """ returns path to RE model folder """
-    dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
-    return dirname
-
-
 def get_path_top():
     """ returns path to topological data folder """
     dirname = os.path.join(os.path.dirname(__file__))
@@ -259,10 +253,9 @@ if __name__ == '__main__':
 
     # setup place cell network, cognitive map and grid cell network (from data)
     weights_file = "mse_weights.50"
-    weights_filepath = os.path.join(get_path_re(), weights_file)
     env_model = "Savinov_val3"
     
-    re = init_reachability_estimator("neural_network", weights_file=weights_filepath, env_model=env_model, with_spikings=True)
+    re = init_reachability_estimator("neural_network", weights_file=weights_file, env_model=env_model, with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, re_type="firing", reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from="after_exploration.gpickle")
     gc_network = setup_gc_network(1e-2)

@@ -161,13 +161,7 @@ def create_exploration():
     weights_file = "mse_weights.50"
     cognitive_map_filename = "after_exploration.gpickle"
 
-    def get_path_re():
-        """ returns path to RE model folder """
-        dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
-        return dirname
-
-    weights_filepath = os.path.join(get_path_re(), weights_file)
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_filepath, env_model=env_model,
+    re = init_reachability_estimator(connection_re_type, weights_file=weights_file, env_model=env_model,
                                      with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=cognitive_map_filename)

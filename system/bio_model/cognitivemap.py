@@ -23,12 +23,6 @@ from system.bio_model.placecellModel import PlaceCell
 from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
 
 
-def get_path_re():
-    """ returns path to RE model folder """
-    dirname = os.path.join(os.path.dirname(__file__), "../controller/reachability_estimator/data/models")
-    return dirname
-
-
 def get_path_top():
     """ returns path to topological data folder """
     dirname = os.path.join(os.path.dirname(__file__))
@@ -520,8 +514,7 @@ if __name__ == "__main__":
     env_model = "Savinov_val3"
     debug = True
 
-    weights_filepath = os.path.join(get_path_re(), weights_filename)
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_filepath, env_model=env_model,
+    re = init_reachability_estimator(connection_re_type, weights_file=weights_filename, env_model=env_model,
                                      debug=debug, with_spikings=True)
 
     cm = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_filename)

@@ -24,12 +24,6 @@ def print_debug(*params):
         print(*params)
 
 
-def get_path_re():
-    """ returns path to RE model folder """
-    dirname = os.path.join(os.path.dirname(__file__), "../reachability_estimator/data/models")
-    return dirname
-
-
 def waypoint_movement(path, env_model: str, gc_network: GridCellNetwork, pc_network: PlaceCellNetwork, cognitive_map: CognitiveMapInterface, mode="combo"):
     """ Agent navigates on path, 
         exploring the environment and building the cognitive map
@@ -92,8 +86,7 @@ def exploration_path(env_model, creation_type, connection_type, re_weights_file,
     # explore and generate
     # Setup grid cells, place cells and the cognitive map
     gc_network = setup_gc_network(dt)
-    weights_filepath = os.path.join(get_path_re(), re_weights_file)
-    re = init_reachability_estimator(connection_type, weights_file=weights_filepath, env_model=env_model,
+    re = init_reachability_estimator(connection_type, weights_file=re_weights_file, env_model=env_model,
                                      debug=debug, with_spikings=True)
     pc_network = PlaceCellNetwork(re_type=creation_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re)

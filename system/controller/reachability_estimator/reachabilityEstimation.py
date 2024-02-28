@@ -104,7 +104,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
 
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
-    def __init__(self, device='cpu', debug=True, weights_file=None, with_spikings=False):
+    def __init__(self, device='cpu', debug=True, weights_file=None, with_spikings=False, weights_folder=get_path()):
         """ Creates a reachability estimator that judges reachability
             between two locations based on its type
 
@@ -120,7 +120,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         super().__init__(threshold_same=0.9, threshold_reachable=0.4, device=device, debug=debug)
 
         self.with_spikings = with_spikings
-        state_dict = torch.load(weights_file, map_location='cpu')
+        weights_filepath = os.path.join(weights_folder, weights_file)
+        state_dict = torch.load(weights_filepath, map_location='cpu')
         self.print_debug('loaded %s' % weights_file)
         global_args = state_dict.get('global_args', {})
         self.print_debug('global args:')

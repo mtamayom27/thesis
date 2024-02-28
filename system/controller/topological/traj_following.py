@@ -19,12 +19,6 @@ import system.plotting.plotResults as plot
 plotting = True
 
 
-def get_path_re():
-    """ returns path to RE model folder """
-    dirname = os.path.join(os.path.dirname(__file__), "../reachability_estimator/data/models")
-    return dirname
-
-
 class TrajectoryFollower(object):
     def __init__(self, env_model: str,
                  pc_network: PlaceCellNetwork, cognitive_map: CognitiveMapInterface,
@@ -165,8 +159,7 @@ if __name__ == "__main__":
     env_model = "Savinov_val3"
     model = "combo"
 
-    weights_filepath = os.path.join(get_path_re(), weights_file)
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_filepath, env_model=env_model,
+    re = init_reachability_estimator(connection_re_type, weights_file=weights_file, env_model=env_model,
                                      with_spikings=with_spikings)
     pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
