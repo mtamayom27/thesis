@@ -138,7 +138,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                                ['convolutional' (default), 'resnet', 'siamese']
         batch_size: int     -- size of batches (default 64), used when not loading from a snapshot
         """
-        super().__init__(threshold_same=0.9, threshold_reachable=0.4, device=device, debug=debug)
+        super().__init__(threshold_same=0.933, threshold_reachable=0.4, device=device, debug=debug)
 
         self.with_spikings = with_spikings
         weights_filepath = os.path.join(weights_folder, weights_file)

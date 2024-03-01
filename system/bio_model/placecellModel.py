@@ -19,7 +19,8 @@ import os
 
 from matplotlib import pyplot as plt
 
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory, \
+    ReachabilityEstimator, NetworkReachabilityEstimator
 from system.plotting.plotHelper import add_environment, TUM_colors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -106,7 +107,7 @@ class PlaceCell:
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
 
-    def __init__(self, from_data=False, re_type="distance", reach_estimator=None):
+    def __init__(self, reach_estimator: ReachabilityEstimator, from_data=False):
         """ Place Cell Network  of the environment. 
         
         arguments:
@@ -115,23 +116,7 @@ class PlaceCellNetwork:
                     see ReachabilityEstimator class for explanation of different types (default distance)
                     plus additional type "firing" that uses place cell spikings
         """
-        from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
-
-        self.re_type = re_type
         self.reach_estimator = reach_estimator
-
-        # thresholds for place cell creation
-        if self.re_type == "distance":
-            self.creation_threshold = 0.5
-        elif self.re_type == "neural_network":
-            self.creation_threshold = 0.6
-        elif self.re_type == "simulation":
-            self.creation_threshold = 1.0
-        elif self.re_type == "firing":
-            self.creation_threshold = 0.933
-        elif self.re_type == "view_overlap":
-            self.creation_threshold = 0.4
-
         self.place_cells = []  # array of place cells
 
         if from_data:
@@ -151,38 +136,19 @@ class PlaceCellNetwork:
         pc = PlaceCell(gc_connections, obs, coordinates)
         self.place_cells.append(pc)
 
-    def in_range(self, reach):
+    def in_range(self, reach: [float]) -> bool:
         """ Determine whether one value meets the threshold """
-        if self.re_type == "distance":
-            r = np.min(reach)
-            return r < self.creation_threshold
-        elif self.re_type == "neural_network":
-            r = np.max(reach)
-            return r > self.creation_threshold
-        elif self.re_type == "simulation":
-            r = np.max(reach)
-            return r >= self.creation_threshold
-        elif self.re_type == "firing":
-            r = np.max(reach)
-            return r > self.creation_threshold
-        elif self.re_type == "view_overlap":
-            r = np.max(reach)
-            return r > self.creation_threshold
+        return any([self.reach_estimator.pass_threshold(reach_value, self.reach_estimator.threshold_same) for reach_value in reach])
 
     def track_movement(self, gc_network, observations, coordinates, creation_allowed):
         """Keeps track of current grid cell firing"""
         firing_values = self.compute_firing_values(gc_network.gc_modules)
 
-        if self.re_type == "firing":
-            firing = firing_values
-        else:
-            firing = self.compute_reachability_values(coordinates, observations)
-
         if not creation_allowed:
             return [firing_values, False]
 
         created_new_pc = False
-        if len(firing_values) == 0 or not self.in_range(firing):
+        if len(firing_values) == 0 or not self.in_range(firing_values):
             self.create_new_pc(gc_network.consolidate_gc_spiking(), observations, coordinates)
             firing_values.append(1)
             created_new_pc = True
@@ -207,23 +173,6 @@ class PlaceCellNetwork:
             else:
                 firing = pc.compute_firing(s_vectors)  # overall firing
             firing_values.append(firing)
-        return firing_values
-
-    def compute_reachability_values(self, coordinates, observations):
-        """ Compute reachability values from all cells to current state, breaks when reachable """
-        firing_values = []
-        goal = types.SimpleNamespace()
-        goal.env_coordinates = coordinates
-        goal.observations = observations
-        for pc in self.place_cells:
-            # compute reachability value from all place cells to the goal
-            firing = self.reach_estimator.predict_reachability(pc, goal)
-            firing_values.append(firing)
-
-            # if one place cell is still in range we do not need to compute the rest
-            if self.in_range([firing]):
-                break
-
         return firing_values
 
     def save_pc_network(self, filename=""):
@@ -256,7 +205,7 @@ if __name__ == '__main__':
     env_model = "Savinov_val3"
     
     re = reachability_estimator_factory("neural_network", weights_file=weights_file, env_model=env_model, with_spikings=True)
-    pc_network = PlaceCellNetwork(from_data=True, re_type="firing", reach_estimator=re)
+    pc_network = PlaceCellNetwork(from_data=True, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from="after_exploration.gpickle")
     gc_network = setup_gc_network(1e-2)
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)

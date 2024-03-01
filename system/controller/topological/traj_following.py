@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     re = reachability_estimator_factory(connection_re_type, weights_file=weights_file, env_model=env_model,
                                         with_spikings=with_spikings)
-    pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
+    pc_network = PlaceCellNetwork(from_data=True, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
     gc_network = setup_gc_network(1e-2)
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)
