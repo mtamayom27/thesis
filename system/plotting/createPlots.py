@@ -11,7 +11,7 @@ from system.controller.local_controller.local_navigation import setup_gc_network
 from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
-from system.controller.topological.traj_following import TrajectoryFollower
+from system.controller.topological.topological_navigation import TopologicalNavigation
 from system.controller.simulation.environment.map_occupancy_helpers.map_visualizer import OccupancyMapVisualizer
 import system.plotting.plotResults as plot
 
@@ -168,7 +168,7 @@ def create_exploration():
     gc_network = setup_gc_network(1e-2)
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
-    tj = TrajectoryFollower(env_model, pc_network, cognitive_map, gc_network, pod)
+    tj = TopologicalNavigation(env_model, "combo", pc_network, cognitive_map, gc_network, pod)
 
     G = tj.cognitive_map.node_network.to_undirected()
     S = [G] + [G.subgraph(c).copy() for c in sorted(nx.connected_components(G), key=len, reverse=True)]

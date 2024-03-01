@@ -72,21 +72,6 @@ class CognitiveMapInterface:
 
         return path
 
-    def locate_node(self, pc: PlaceCell) -> (bool, PlaceCell):
-        """ Maps a location of the given place cell to the node in the graph
-
-        arguments:
-        pc: PlaceCell    -- a place cell to be located
-
-        returns:
-        is_located: bool -- indicates if a close enough node exists
-        node: PlaceCell  -- a node in the graph or a given place cell if no node is found
-        """
-        for node in self.node_network.nodes:
-            if self.reach_estimator.is_same(node, pc):
-                return True, node
-        return False, pc
-
     def add_node_to_map(self, p: PlaceCell):
         """ Adds a new node to the cognitive map """
         self.node_network.add_node(p, pos=tuple(p.env_coordinates))
@@ -627,24 +612,6 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.prior_idx_pc_firing = None
         if not self.remove_nodes:
             self.deduplicate_nodes()
-
-    def locate_node(self, pc: PlaceCell) -> (bool, PlaceCell):
-        """ Maps a location of the given place cell to the node in the graph
-
-        arguments:
-        pc: PlaceCell -- a place cell to be located
-
-        returns:
-        bool          -- indicates if a close enough node exists
-        PlaceCell     -- a node in the graph or a given place cell if no node is found
-        """
-
-        existing_node, located_pc = super().locate_node(pc)
-        if existing_node:
-            return existing_node, located_pc
-
-        self.add_and_connect_node(pc)
-        return True, pc
 
     def add_and_connect_node(self, pc: PlaceCell):
         """ Helper function. Adds new node to the map and edges to adjacent nodes with standard parameters  """
