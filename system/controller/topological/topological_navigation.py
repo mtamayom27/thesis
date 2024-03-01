@@ -48,8 +48,8 @@ class TopologicalNavigation(object):
         """ Navigates the agent through the environment with topological navigation.
 
         arguments:
-        start_ind: int              -- index of start node in the cognitve map, if None: random is chosen
-        goal_ind: int               -- index of goal node in the cognitve map, if None: random is chosen
+        start_ind: int              -- index of start node in the cognitive map, if None: random is chosen
+        goal_ind: int               -- index of goal node in the cognitive map, if None: random is chosen
         cognitive_map_filename: str -- name of file to save the cognitive map to
 
         returns:
@@ -164,7 +164,8 @@ class TopologicalNavigation(object):
         """
         closest_node = None
         for node in self.cognitive_map.node_network.nodes:
-            goal_vector = env.get_goal_vector(self.gc_network, self.pod, goal=node.env_coordinates)  # recalculate goal_vector
+            goal_vector = env.get_goal_vector(self.gc_network, self.pod,
+                                              goal=node.env_coordinates)  # recalculate goal_vector
             if env.reached(goal_vector):
                 closest_node = node
                 new_path = self.cognitive_map.find_path(node, goal)
@@ -211,4 +212,3 @@ if __name__ == "__main__":
 
     print(f"{successful} successful navigations")
     print("Navigation finished")
-
