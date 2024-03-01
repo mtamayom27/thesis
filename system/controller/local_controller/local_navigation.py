@@ -127,23 +127,25 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     Agent navigates towards goal.
     
     arguments:
-    env         --  running PybulletEnvironment
-    goal        --  coordinates of the goal
-    gc_network  --  grid cell network used for navigation (pod, linear_lookahead, combo)
-                    or grid cell spiking generation (analytical)
-    gc_spiking  --  grid cell spikings at the goal (pod, linear_lookahead, combo)
-    model       --  pod: agent uses the phase-offset decoder for goal vector calculation
-                    linear_lookahead: agent uses linear lookahead decoder for goal vector calculation
-                    combo: agent uses pod until arrival, than switches to linear lookahead
-                    analytical: agent calculates precise goal vector using coordinates, collects spikings
-                    (default combo)
-    step_limit  --  navigation stops after step_limit amount of steps (default infinity)
-    plot_it     --  if true: plot the navigation (default false)
-    obstacles   --  if true: movement vector is a combination of goal and obstacle vector (default true)
-    
-    collect_data_freq -- return necessary data for trajectory generation
-    collect_data_reachable  -- return necessary data for reachability dataset generation
-    exploration_phase   -- track movement for cognitive map and place cell model (this is a misnomer and also used in the navigation phase)
+    env                    --  running PybulletEnvironment
+    goal                   --  coordinates of the goal
+    gc_network             --  grid cell network used for navigation (pod, linear_lookahead, combo)
+                               or grid cell spiking generation (analytical)
+    gc_spiking             --  grid cell spikings at the goal (pod, linear_lookahead, combo)
+    model                  --  pod: agent uses the phase-offset decoder for goal vector calculation
+                               linear_lookahead: agent uses linear lookahead decoder for goal vector calculation
+                               combo: agent uses pod until arrival, than switches to linear lookahead
+                               analytical: agent calculates precise goal vector using coordinates, collects spikings
+                               (default combo)
+    step_limit             --  navigation stops after step_limit amount of steps (default infinity)
+    plot_it                --  if true: plot the navigation (default false)
+    obstacles              --  if true: movement vector is a combination of goal and obstacle vector (default true)
+    pod                    -- phase offset detector
+    collect_data_freq      -- return necessary data for trajectory generation
+    collect_data_reachable -- return necessary data for reachability dataset generation
+    exploration_phase      -- track movement for cognitive map and place cell model (this is a misnomer and also used in the navigation phase)
+    pc_network             -- place cell network
+    cognitive_map          -- cognitive map object
     """
 
     data = []
@@ -224,7 +226,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
 
 
 if __name__ == "__main__":
-    print("""Test the local controller's ability of vector navigation with obstacle avoidance.""")
+    """ Test the local controller's ability of vector navigation with obstacle avoidance. """
 
     experiment = None
     """
