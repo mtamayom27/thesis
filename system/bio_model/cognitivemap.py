@@ -21,11 +21,11 @@ from system.plotting.plotThesis import plot_grid_cell
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from system.utils import sample_normal
 from system.bio_model.placecellModel import PlaceCell, PlaceCellNetwork
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator, \
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory, \
     ReachabilityEstimator
 
 
-def get_path_top():
+def get_path_top() -> str:
     """ returns path to the folder of the current file """
     dirname = os.path.join(os.path.dirname(__file__))
     return dirname
@@ -63,7 +63,7 @@ class CognitiveMapInterface:
         """
         pass
 
-    def find_path(self, start: PlaceCell, goal: PlaceCell):
+    def find_path(self, start: PlaceCell, goal: PlaceCell) -> [PlaceCell]:
         """ Returns a path in the graph from start to goal nodes"""
         try:
             path = nx.shortest_path(self.node_network, source=start, target=goal)
@@ -72,7 +72,7 @@ class CognitiveMapInterface:
 
         return path
 
-    def locate_node(self, pc: PlaceCell):
+    def locate_node(self, pc: PlaceCell) -> (bool, PlaceCell):
         """ Maps a location of the given place cell to the node in the graph
 
         arguments:
@@ -428,7 +428,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         self.min_node_degree_for_deletion = 4
         self.max_number_unique_neighbors_for_deletion = 2
 
-    def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
+    def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs) -> PlaceCell:
         """ Incorporate changes to the map after each vector navigation tryout. Adds nodes during exploration phase and
             edges during navigation.
 
@@ -628,15 +628,15 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         if not self.remove_nodes:
             self.deduplicate_nodes()
 
-    def locate_node(self, pc: PlaceCell):
+    def locate_node(self, pc: PlaceCell) -> (bool, PlaceCell):
         """ Maps a location of the given place cell to the node in the graph
 
         arguments:
-        pc: PlaceCell    -- a place cell to be located
+        pc: PlaceCell -- a place cell to be located
 
         returns:
-        is_located: bool -- indicates if a close enough node exists
-        node: PlaceCell  -- a node in the graph or a given place cell if no node is found
+        bool          -- indicates if a close enough node exists
+        PlaceCell     -- a node in the graph or a given place cell if no node is found
         """
 
         existing_node, located_pc = super().locate_node(pc)
@@ -672,8 +672,8 @@ if __name__ == "__main__":
     env_model = "Savinov_val3"
     debug = True
 
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_filename, env_model=env_model,
-                                     debug=debug, with_spikings=True)
+    re = reachability_estimator_factory(connection_re_type, weights_file=weights_filename, env_model=env_model,
+                                        debug=debug, with_spikings=True)
     # Select the version of the cognitive map to use
     cm = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_filename)
     cm.draw()

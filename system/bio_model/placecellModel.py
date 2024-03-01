@@ -19,7 +19,7 @@ import os
 
 from matplotlib import pyplot as plt
 
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 from system.plotting.plotHelper import add_environment, TUM_colors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -115,7 +115,7 @@ class PlaceCellNetwork:
                     see ReachabilityEstimator class for explanation of different types (default distance)
                     plus additional type "firing" that uses place cell spikings
         """
-        from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+        from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 
         self.re_type = re_type
         self.reach_estimator = reach_estimator
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     weights_file = "mse_weights.50"
     env_model = "Savinov_val3"
     
-    re = init_reachability_estimator("neural_network", weights_file=weights_file, env_model=env_model, with_spikings=True)
+    re = reachability_estimator_factory("neural_network", weights_file=weights_file, env_model=env_model, with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, re_type="firing", reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from="after_exploration.gpickle")
     gc_network = setup_gc_network(1e-2)

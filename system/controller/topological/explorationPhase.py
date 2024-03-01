@@ -1,7 +1,7 @@
 import sys
 import os
 
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -86,8 +86,8 @@ def exploration_path(env_model, creation_type, connection_type, re_weights_file,
     # explore and generate
     # Setup grid cells, place cells and the cognitive map
     gc_network = setup_gc_network(dt)
-    re = init_reachability_estimator(connection_type, weights_file=re_weights_file, env_model=env_model,
-                                     debug=debug, with_spikings=True)
+    re = reachability_estimator_factory(connection_type, weights_file=re_weights_file, env_model=env_model,
+                                        debug=debug, with_spikings=True)
     pc_network = PlaceCellNetwork(re_type=creation_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re)
 

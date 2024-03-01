@@ -5,7 +5,7 @@ import os
 
 from system.bio_model.gridcellModel import GridCellNetwork
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -159,8 +159,8 @@ if __name__ == "__main__":
     env_model = "Savinov_val3"
     model = "combo"
 
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_file, env_model=env_model,
-                                     with_spikings=with_spikings)
+    re = reachability_estimator_factory(connection_re_type, weights_file=weights_file, env_model=env_model,
+                                        with_spikings=with_spikings)
     pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
     gc_network = setup_gc_network(1e-2)

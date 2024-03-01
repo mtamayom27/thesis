@@ -111,7 +111,7 @@ def initialize_network(backbone='convolutional', model_variant='convolutional'):
         return initialize_cnn(model_variant)
     elif backbone == 'res_net':
         return initialize_res_net()
-    elif backbone == 'grid_cell':
+    elif backbone == 'siamese':
         return initialize_siamese()
     else:
         raise ValueError("Backbone not implemented")
@@ -238,7 +238,7 @@ def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_tr
         return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings)
     elif backbone == 'res_net':
         return get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings)
-    elif backbone == 'grid_cell':
+    elif backbone == 'siamese':
         return get_grid_cell(batch_src_spikings, batch_dst_spikings), None, None
 
 

@@ -8,7 +8,7 @@ from system.bio_model.cognitivemap import LifelongCognitiveMap
 from system.bio_model.placecellModel import PlaceCellNetwork
 from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
 from system.controller.local_controller.local_navigation import setup_gc_network
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.controller.topological.traj_following import TrajectoryFollower
@@ -161,8 +161,8 @@ def create_exploration():
     weights_file = "mse_weights.50"
     cognitive_map_filename = "after_exploration.gpickle"
 
-    re = init_reachability_estimator(connection_re_type, weights_file=weights_file, env_model=env_model,
-                                     with_spikings=True)
+    re = reachability_estimator_factory(connection_re_type, weights_file=weights_file, env_model=env_model,
+                                        with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, re_type=creation_re_type, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=cognitive_map_filename)
     gc_network = setup_gc_network(1e-2)

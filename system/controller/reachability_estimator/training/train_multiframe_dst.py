@@ -76,9 +76,8 @@ def run_test_model(dataset):
     n_samples = 6400
     sampler = RandomSampler(dataset, True, n_samples)
 
-    batch_size = 64
     loader = DataLoader(dataset,
-                        batch_size=batch_size,
+                        batch_size=reach_estimator.batch_size,
                         sampler=sampler,
                         num_workers=0,
                         pin_memory=True,
@@ -94,7 +93,7 @@ def run_test_model(dataset):
     recall = BinaryRecall()
     f1 = BinaryF1Score()
     for idx, item in enumerate(loader):
-        print(f"Processing batch {idx} out of {n_samples // batch_size}")
+        print(f"Processing batch {idx} out of {n_samples // reach_estimator.batch_size}")
         batch_src_imgs, batch_dst_imgs, batch_reachability, batch_transformation = item
         src_img = batch_src_imgs.to(device="cpu", non_blocking=True)
         dst_imgs = batch_dst_imgs.to(device="cpu", non_blocking=True)
@@ -103,7 +102,7 @@ def run_test_model(dataset):
         src_batch = src_img.float()
         dst_batch = dst_imgs.float()
 
-        pred_r = reach_estimator.predict_reachability_batch(src_batch, dst_batch, batch_size=batch_size)
+        pred_r = reach_estimator.predict_reachability_batch(src_batch, dst_batch)
         pred_r = torch.from_numpy(pred_r)
 
         test_accuracy += accuracy(pred_r, r.int())

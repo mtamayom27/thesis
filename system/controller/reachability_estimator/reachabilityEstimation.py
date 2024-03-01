@@ -7,6 +7,7 @@
 *
 ***************************************************************************************
 """
+import numpy
 import torch
 import numpy as np
 import tabulate
@@ -26,7 +27,21 @@ def get_path():
     return dirname
 
 
-def init_reachability_estimator(type='distance', **kwargs):
+def reachability_estimator_factory(type: str = 'distance', **kwargs):
+    """ Returns an instance of the reachability estimator interface
+
+    arguments:
+    type: str -- type of the reachability estimator, possible values:
+                 ['distance' (default), 'neural_network', 'simulation', 'view_overlap']
+    kwargs:
+        device: str         -- type of the computations, possible values: ['cpu' (default), 'gpu']
+        weights_file: str   -- filename of the weights for network-based estimator if exists
+        with_spikings: bool -- parameter for network-based estimator, flag to include grid cell spikings into input
+        env_model: str      -- model of the environment for simulation-based estimator
+
+    returns:
+        ReachabilityEstimator object of the corresponding type
+    """
     if type == 'distance':
         return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
     elif type == 'neural_network':
@@ -42,18 +57,14 @@ def init_reachability_estimator(type='distance', **kwargs):
 
 
 class ReachabilityEstimator:
-    def __init__(self, threshold_same, threshold_reachable, device='cpu', debug=False):
-        """ Creates a reachability estimator that judges reachability
-            between two locations based on its type
+    def __init__(self, threshold_same: float, threshold_reachable: float, device:str = 'cpu', debug: bool = False):
+        """ Abstract base class defining the interface for reachability estimator implementations.
 
         arguments:
-        weights_file    -- neural network
-        device          -- device used for calculations (default cpu)
-        type            -- type of reachability estimation
-                        distance: returns distance between two coordinates
-                        neural_network: returns neural network prediction using images
-                        simulation: simulates navigation attempt and returns result
-                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        threshold_same: float      -- threshold for determining when nodes are close enough to be considered same node
+        threshold_reachable: float -- threshold for determining when nodes are close enough to be considered reachable
+        device                     -- device used for calculations (default cpu)
+        debug: bool                -- enables logging
         """
         self.device = device
         self.debug = debug
@@ -61,61 +72,71 @@ class ReachabilityEstimator:
         self.threshold_reachable = threshold_reachable
 
     def print_debug(self, *params):
-        """ output only when in debug mode """
+        """ Helper function, outputs only when in debug mode """
         if self.debug:
             print(*params)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
+        """ Abstract function, determines reachability factor between two locations """
         pass
 
-    def get_reachability(self, p, q) -> (bool, float):
-        """ Determine whether reachability value meets the threshold """
+    def get_reachability(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
+        """ Determines whether two nodes are reachable based on the reachability threshold
+
+        returns:
+        bool  -- flag that indicates that locations are reachable
+        float -- reachability probability
+        """
         reachability_factor = self.predict_reachability(p, q)
         return self.pass_threshold(reachability_factor, self.threshold_reachable), reachability_factor
 
     def pass_threshold(self, reachability_factor, threshold) -> bool:
-        return reachability_factor < threshold
+        """ Abstract function, decides if the reachability value passes the threshold """
+        pass
 
-    def is_same(self, p, q) -> bool:
+    def is_same(self, p: PlaceCell, q: PlaceCell) -> bool:
         """ Determine whether two nodes are close to each other sufficiently to consider them the same node """
         return self.pass_threshold(self.predict_reachability(p, q), self.threshold_same)
 
     def get_connectivity_probability(self, reachability_factor):
+        """ Computes connectivity probability based on reachability factor """
         return reachability_factor
 
 
 class DistanceReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False):
-        """ Creates a reachability estimator that judges reachability 
-            between two locations based on the distance
+        """ Creates a reachability estimator that judges reachability between two locations based on the distance
             
         arguments:
-        device          -- device used for calculations (default cpu)
-        debug           -- is in debug mode
+        device -- device used for calculations (default cpu)
+        debug  -- is in debug mode
         """
         super().__init__(threshold_same=0.4, threshold_reachable=0.75, device=device, debug=debug)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
-        """ Return distance between start and goal as an estimation of reachability"""
+        """ Returns distance between start and goal as an estimation of reachability"""
         return np.linalg.norm(start.env_coordinates - goal.env_coordinates)
 
-    def pass_threshold(self, reachability_factor, threshold) -> bool:
+    def pass_threshold(self, reachability_factor: float, threshold: float) -> bool:
+        """ Two nodes are reachable if the distance is less than the threshold """
         return reachability_factor < threshold
 
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
-    def __init__(self, device='cpu', debug=True, weights_file=None, with_spikings=False, weights_folder=get_path()):
-        """ Creates a reachability estimator that judges reachability
-            between two locations based on its type
+    def __init__(self, device:str = 'cpu', debug: bool = True, weights_file: str = None, with_spikings: bool = False,
+                 weights_folder: str = get_path(), backbone: str = 'convolutional', batch_size: int = 64):
+        """ Creates a network-based reachability estimator that judges reachability
+            between two locations based on observations and grid cell spikings
 
         arguments:
-        weights_file    -- neural network
-        device          -- device used for calculations (default cpu)
-        type            -- type of reachability estimation
-                        distance: returns distance between two coordinates
-                        neural_network: returns neural network prediction using images
-                        simulation: simulates navigation attempt and returns result
-                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        device: str         -- device used for calculations (default cpu)
+        debug: bool         -- is in debug mode
+        weights_file: str   -- file with weights to load the snapshot from
+        with_spikings: bool -- flag indicates whether to include grid cell firing to input
+        weights_folder: sre -- path to the folder with weights files
+        backbone: str       -- variant of the neural network, used when not loading from a snapshot, possible values:
+                               ['convolutional' (default), 'resnet', 'siamese']
+        batch_size: int     -- size of batches (default 64), used when not loading from a snapshot
         """
         super().__init__(threshold_same=0.9, threshold_reachable=0.4, device=device, debug=debug)
 
@@ -127,8 +148,9 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         self.print_debug('global args:')
         self.print_debug(tabulate.tabulate(global_args.items()))
 
-        self.backbone = global_args.get('backbone', 'convolutional')
+        self.backbone = global_args.get('backbone', backbone)
         self.model_variant = global_args['model_variant']
+        self.batch_size = global_args.get('batch_size', batch_size)
 
         self.nets = networks.initialize_network(self.backbone, self.model_variant)
         self.nets = {name: spec['net'] for name, spec in self.nets.items()}
@@ -140,20 +162,36 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
             net.train(False)
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
-        """ Return reachability estimate from start to goal using the re_type """
+        """ Predicts reachability value between two locations """
         if self.with_spikings:
             if isinstance(goal.gc_connections, list):
                 goal.gc_connections = np.array(goal.gc_connections)
             return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]],
                                                    [spikings_reshape(start.gc_connections.flatten())],
-                                                   [spikings_reshape(np.array(goal.gc_connections).flatten())], batch_size=1)[0]
-        return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]], batch_size=1)[0]
+                                                   [spikings_reshape(np.array(goal.gc_connections).flatten())])[0]
+        return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]])[0]
 
-    def predict_reachability_batch(self, starts, goals, src_spikings=None, goal_spikings=None, batch_size=64):
-        def get_prediction(src_batch, dst_batch, src_spikings=None, goal_spikings=None):
+    def predict_reachability_batch(self, starts: [numpy.ndarray | torch.Tensor], goals: [numpy.ndarray | torch.Tensor],
+                                   src_spikings: [numpy.ndarray | torch.Tensor] = None,
+                                   goal_spikings: [numpy.ndarray | torch.Tensor] = None) -> [float]:
+        """ Predicts reachability for multiple location pairs
+
+        arguments:
+        starts: [numpy.ndarray | torch.Tensor]        -- images perceived by the agent on first locations of each pair
+        starts: [numpy.ndarray | torch.Tensor]        -- images perceived by the agent on second locations of each pair
+        src_spikings: [numpy.ndarray]                 -- grid cell firings corresponding to the first locations
+                                                         of each pair, nullable
+        goal_spikings: [numpy.ndarray]                -- grid cell firings corresponding to the second locations
+                                                         of each pair, nullable
+        batch_size: int                               -- length of each input list and of returned list
+
+        returns:
+        [float] -- reachability values
+        """
+        def get_prediction(src_batch: [numpy.ndarray | torch.Tensor], dst_batch: [numpy.ndarray | torch.Tensor],
+                           src_spikings: [numpy.ndarray] = None, goal_spikings: [numpy.ndarray] = None) -> [float]:
+            """ Helper function, main logic for predicting reachability for multiple location pairs """
             with torch.no_grad():
-                # as_tensor() is very slow when passing in a list of np arrays, but is 30X faster
-                # when wrapping the list with np.array().
                 if isinstance(src_batch[0], np.ndarray):
                     src_batch = np.array(src_batch)
                     if self.with_spikings:
@@ -183,6 +221,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
 
         results = []
         n_remaining = n
+        batch_size = min(self.batch_size, len(starts))
         while n_remaining > 0:
             results.append(get_prediction(starts[n - n_remaining: n - n_remaining + batch_size],
                                   goals[n - n_remaining: n - n_remaining + batch_size],
@@ -192,31 +231,31 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         return torch.cat(results, dim=0).data.cpu().numpy()
 
     def pass_threshold(self, reachability_factor, threshold) -> bool:
+        """ Two nodes are reachable if the confidence value of the network is greater than the threshold """
         return reachability_factor > threshold
 
     def get_connectivity_probability(self, reachability_factor):
+        """ Converts output of the network into connectivity factor """
         return min(1.0, max((self.threshold_reachable - reachability_factor * 0.3) / self.threshold_reachable, 0.1))
 
 
 class SimulationReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False, env_model=None):
         """ Creates a reachability estimator that judges reachability
-            between two locations based on its type
+            between two locations based success of navigation simulation
 
         arguments:
-        weights_file    -- neural network
-        device          -- device used for calculations (default cpu)
-        type            -- type of reachability estimation
-                        distance: returns distance between two coordinates
-                        neural_network: returns neural network prediction using images
-                        simulation: simulates navigation attempt and returns result
-                        view_overlap: judges reachability based on view overlap of start and goal position within the environment
+        threshold_same: float      -- threshold for determining when nodes are close enough to be considered same node
+        threshold_reachable: float -- threshold for determining when nodes are close enough to be considered reachable
+        device                     -- device used for calculations (default cpu)
+        debug: bool                -- enables logging
         """
         super().__init__(threshold_same=1.0, threshold_reachable=1.0, device=device, debug=debug)
         self.env_model = env_model
         self.fov = 120 * np.pi / 180
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
+        """ Determines reachability factor between two locations """
         from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
 
         """ Return reachability estimate from start to goal using the re_type """
@@ -267,10 +306,13 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
 class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False):
         """ Creates a reachability estimator that judges reachability
-            between two locations based on its type
+            between two locations based the overlap of their fields of view
 
         arguments:
-        device          -- device used for calculations (default cpu)
+        threshold_same: float      -- threshold for determining when nodes are close enough to be considered same node
+        threshold_reachable: float -- threshold for determining when nodes are close enough to be considered reachable
+        device                     -- device used for calculations (default cpu)
+        debug: bool                -- enables logging
         """
         super().__init__(threshold_same=0.4, threshold_reachable=0.3, device=device, debug=debug)
         self.env_model = "Savinov_val3"
@@ -280,14 +322,13 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
     def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
         """ Reachability Score based on the view overlap of start and goal in the environment """
-        # TODO Johanna: untested and unfinished
+        # untested and unfinished
         start_pos = start.env_coordinates
         goal_pos = goal.env_coordinates
 
         heading1 = np.degrees(np.arctan2(goal_pos[0] - start_pos[0], goal_pos[1] - start_pos[1]))
 
-        overlap_ratios = self.map_layout.view_overlap(start_pos, heading1,
-                                                 goal_pos, heading1, self.fov, mode='plane')
+        overlap_ratios = self.map_layout.view_overlap(start_pos, heading1, goal_pos, heading1, self.fov, mode='plane')
 
         return (overlap_ratios[0] + overlap_ratios[1]) / 2
 
@@ -296,6 +337,6 @@ class ViewOverlapReachabilityEstimator(ReachabilityEstimator):
 
 
 def spikings_reshape(img_array):
-    """ image stored in array form to image in correct shape for nn """
+    """ Helper function, image stored in array form to image in correct shape for nn """
     img = np.reshape(img_array, (6, 40, 40))
     return img
