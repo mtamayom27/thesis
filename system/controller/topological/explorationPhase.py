@@ -93,7 +93,7 @@ def exploration_path(env_model, creation_type, connection_type, re_weights_file,
 
     pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map, mode=mode)
     # save place cell network and cognitive map
-    cognitive_map.postprocess()
+    cognitive_map.postprocess_topological_navigation()
     pc_network.save_pc_network()
     cognitive_map.save(filename=cognitive_map_filename)
 

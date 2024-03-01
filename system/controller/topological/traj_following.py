@@ -95,7 +95,7 @@ class TrajectoryFollower(object):
             stop, pc = vector_navigation(env, goal_pos, self.gc_network, goal_spiking, model=method,
                                          obstacles=True, exploration_phase=False, pc_network=self.pc_network,
                                          pod=self.pod, cognitive_map=self.cognitive_map, plot_it=False, step_limit=500)
-            self.cognitive_map.track_topological_navigation(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1)
+            self.cognitive_map.postprocess_vector_navigation(node_p=path[i], node_q=path[i + 1], observation_p=last_pc, observation_q=pc, success=stop == 1)
 
             curr_path_length += 1
             if stop != 1:
@@ -129,7 +129,7 @@ class TrajectoryFollower(object):
             plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=self.cognitive_map,
                                              start=path[0].env_coordinates, end=path[-1].env_coordinates)
 
-        self.cognitive_map.postprocess()
+        self.cognitive_map.postprocess_topological_navigation()
         if cognitive_map_filename is not None:
             self.cognitive_map.save(filename=cognitive_map_filename)
         return curr_path_length < path_length_limit, start_ind, goal_ind

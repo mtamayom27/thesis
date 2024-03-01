@@ -1,4 +1,4 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
 *    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
 *    Author: "Tim Engelmann"
@@ -7,9 +7,10 @@
 *    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
 *
 ***************************************************************************************
-'''
+"""
 import networkx as nx
 import numpy as np
+import matplotlib.pyplot as plt
 
 import sys
 import os
@@ -19,40 +20,51 @@ from system.plotting.plotThesis import plot_grid_cell
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from system.utils import sample_normal
-from system.bio_model.placecellModel import PlaceCell
-from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator
+from system.bio_model.placecellModel import PlaceCell, PlaceCellNetwork
+from system.controller.reachability_estimator.reachabilityEstimation import init_reachability_estimator, \
+    ReachabilityEstimator
 
 
 def get_path_top():
-    """ returns path to topological data folder """
+    """ returns path to the folder of the current file """
     dirname = os.path.join(os.path.dirname(__file__))
     return dirname
 
 
 class CognitiveMapInterface:
-    def __init__(self, reachability_estimator=None, load_data_from=None, debug=True):
-        """ Cognitive map representation of the environment.
+    def __init__(self, reachability_estimator: ReachabilityEstimator, load_data_from: str = None, debug: bool = True):
+        """ Abstract base class defining the interface for cognitive map implementations.
 
         arguments:
-        from_data   -- if True: load existing cognitive map (default False)
-        re_type     -- type of reachability estimator determining whether two nodes are connected
-                    see ReachabilityEstimator class for explanation of different types (default distance)
-        env_model   -- only needed when the reachability estimation is handled by simulation
+        reachability_estimator: ReachabilityEstimator -- reachability estimator that should be used for defining
+                                                         the proximity of nodes
+        load_data_from: str                           -- filename of the snapshot of the cognitive map,
+                                                         None if a new cognitive map is being created
+        debug: bool                                   -- enables logging
         """
 
         self.reach_estimator = reachability_estimator
         self.node_network = nx.DiGraph()
         if load_data_from is not None:
             self.load(filename=load_data_from)
-        self.active_threshold = 0.9
-        self.prior_idx_pc_firing = None
         self.debug = debug
+        # threshold used for determining nodes that represents current location of the agent
+        self.active_threshold = 0.9
+        # last active node
+        self.prior_idx_pc_firing = None
 
     def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
+        """ Abstract function used to incorporate changes to the map after each vector navigation
+
+        arguments:
+        pc_firing: [float]   -- current firings of all place cells
+        created_new_pc: bool -- indicates if a new place cell was created after vector navigation
+        pc: PlaceCell        -- current location of the agent
+        """
         pass
 
-    def find_path(self, start, goal):
-        """ Return path along nodes from start to goal"""
+    def find_path(self, start: PlaceCell, goal: PlaceCell):
+        """ Returns a path in the graph from start to goal nodes"""
         try:
             path = nx.shortest_path(self.node_network, source=start, target=goal)
         except nx.NetworkXNoPath:
@@ -61,37 +73,78 @@ class CognitiveMapInterface:
         return path
 
     def locate_node(self, pc: PlaceCell):
+        """ Maps a location of the given place cell to the node in the graph
+
+        arguments:
+        pc: PlaceCell    -- a place cell to be located
+
+        returns:
+        is_located: bool -- indicates if a close enough node exists
+        node: PlaceCell  -- a node in the graph or a given place cell if no node is found
+        """
         for node in self.node_network.nodes:
             if self.reach_estimator.is_same(node, pc):
                 return True, node
         return False, pc
 
     def add_node_to_map(self, p: PlaceCell):
-        """ Add a new node to the cognitive map """
+        """ Adds a new node to the cognitive map """
         self.node_network.add_node(p, pos=tuple(p.env_coordinates))
 
-    def add_edge_to_map(self, p, q, w=1, **kwargs):
-        """ Add a new weighted edge to the cognitive map """
+    def add_edge_to_map(self, p: PlaceCell, q: PlaceCell, w: float = 1, **kwargs):
+        """ Adds a new directed weighted edge to the cognitive map with given weight and parameters
+
+        arguments:
+        p: PlaceCell -- source node of the edge
+        q: PlaceCell -- target node of the edge
+        w: float     -- weight of the edge
+        **kwargs     -- parameters of the edge
+        """
         self.node_network.add_edge(p, q, weight=w, **kwargs)
 
-    def add_bidirectional_edge_to_map_no_weight(self, p, q, **kwargs):
+    def add_bidirectional_edge_to_map_no_weight(self, p: PlaceCell, q: PlaceCell, **kwargs):
+        """ Adds a new bidirectional edge to the cognitive map with given parameters
+
+        arguments:
+        p: PlaceCell -- first node of the edge
+        q: PlaceCell -- second node of the edge
+        **kwargs     -- parameters of the edge
+        """
         self.node_network.add_edge(p, q, **kwargs)
         self.node_network.add_edge(q, p, **kwargs)
 
     def add_bidirectional_edge_to_map(self, p, q, w=1, **kwargs):
-        """ Add 2 new weighted edges to the cognitive map """
+        """ Adds a new bidirectional weighted edge to the cognitive map with given parameters
+
+        arguments:
+        p: PlaceCell -- first node of the edge
+        q: PlaceCell -- second node of the edge
+        w: float     -- weight of the edge
+        **kwargs     -- parameters of the edge
+        """
         self.node_network.add_edge(p, q, weight=w, **kwargs)
         self.node_network.add_edge(q, p, weight=w, **kwargs)
 
-    def save(self, relative_folder="data/cognitive_map", filename=None):
-        """ Store the current state of the node_network """
+    def save(self, filename: str, relative_folder: str = "data/cognitive_map"):
+        """ Stores the current state of the node_network to the file
+
+        arguments:
+        filename: str        -- filename of the snapshot
+        relative_folder: str -- relative folder (counting from the folder of the current file) of the snapshot file
+        """
         directory = os.path.join(get_path_top(), "data/cognitive_map")
         if not os.path.exists(directory):
             os.makedirs(directory)
         nx.write_gpickle(self.node_network, os.path.join(directory, filename))
 
-    def load(self, relative_folder="data/cognitive_map", filename=None):
-        """ Load existing cognitive map """
+    def load(self, filename: str, relative_folder: str = "data/cognitive_map"):
+        """ Loads the state of the node_network from the file
+
+        arguments:
+        filename: str        -- filename of the snapshot
+        relative_folder: str -- relative folder (counting from the folder of the current file) of the snapshot file
+        """
+
         directory = os.path.join(get_path_top(), relative_folder)
         if not os.path.exists(directory):
             raise ValueError("cognitive map not found")
@@ -99,9 +152,12 @@ class CognitiveMapInterface:
         if debug:
             self.draw()
 
-    def draw(self, with_labels=True):
-        """ Plot the cognitive map """
-        import matplotlib.pyplot as plt
+    def draw(self, with_labels: bool = True):
+        """ Plot the cognitive map
+
+        arguments:
+        with_labels: bool -- flag to include node indices as labels
+        """
         pos = nx.get_node_attributes(self.node_network, 'pos')
         if with_labels:
             node_list = list(self.node_network.nodes)
@@ -111,34 +167,48 @@ class CognitiveMapInterface:
         plt.show()
 
     def print_debug(self, *params):
-        """ output only when in debug mode """
+        """ Logs information if debug mode is on """
         if self.debug:
             print(*params)
 
-    def postprocess(self):
+    def postprocess_topological_navigation(self):
+        """ Performs map processing after one full topological navigation cycle """
         pass
 
-    def track_topological_navigation(self, node_p, node_q, observation_q, observation_p, success):
+    def postprocess_vector_navigation(self, node_p: PlaceCell, node_q: PlaceCell, observation_q: PlaceCell,
+                                      observation_p: PlaceCell, success: bool):
+        """ Performs map processing after one full vector navigation
+
+        arguments:
+        node_p: PlaceCell        -- source node in the graph on the start of the vector navigation
+        node_q: PlaceCell        -- estimated target node in the graph
+        observation_q: PlaceCell -- actual location of the agent on the start of the vector navigation
+        observation_p: PlaceCell -- actual location of the agent after vector navigation
+        success: bool            -- indicates if the agent reached the target graph node
+        """
         pass
 
 
 class CognitiveMap(CognitiveMapInterface):
     def __init__(self, reachability_estimator=None, mode="exploration", connection=("all", "delayed"),
                  load_data_from=None, debug=False):
-        """ Cognitive map representation of the environment. 
+        """ Baseline cognitive map representation of the environment.
         
         arguments:
-        from_data   -- if True: load existing cognitive map (default False)
-        re_type     -- type of reachability estimator determining whether two nodes are connected
-                    see ReachabilityEstimator class for explanation of different types (default distance)
-        mode        -- distinguishes between navigation and exploration mode for differences in
-                    node connection process (default exploration)
-        connection  -- (which nodes, when) Decides when the connection between which nodes is calculated.
-                        all / radius: all possible connections are calculated 
-                                    or just the connections between two nodes within each others radius are calculated
-                        delayed / instant: the connection calculation is delayed until after the agent has explored the maze
-                                        or every node is connected to other nodes as soon as it is created
-        env_model   -- only needed when the reachability estimation is handled by simulation
+        reachability_estimator: ReachabilityEstimator -- reachability estimator that should be used for
+                                                         defining the proximity of nodes
+        mode                                          -- distinguishes between navigation and exploration mode for
+                                                         differences in node connection process (default exploration)
+        connection                                    -- (which nodes, when) Decides when the connection between which
+                                                         nodes is calculated.
+            all / radius:      all possible connections are calculated
+                               or just the connections between two nodes within each others radius are calculated
+            delayed / instant: the connection calculation is delayed until after the agent has explored the maze
+                               or every node is connected to other nodes as soon as it is created
+        load_data_from: str                           -- filename of the snapshot of the cognitive map, None if a new
+                                                         cognitive map is being created
+        debug: bool                                   -- enables logging
+
         """
         super().__init__(reachability_estimator, load_data_from=load_data_from, debug=debug)
 
@@ -228,7 +298,7 @@ class CognitiveMap(CognitiveMapInterface):
             self.prior_idx_pc_firing = idx_pc_active
 
     def save(self, relative_folder="data/cognitive_map", filename=None):
-        CognitiveMapInterface.save(self)
+        CognitiveMapInterface.save(self, filename, relative_folder=relative_folder)
         directory = os.path.join(get_path_top(), relative_folder)
 
         if self.connection[1] == "delayed":
@@ -239,7 +309,6 @@ class CognitiveMap(CognitiveMapInterface):
         """ Test the drift error of place cells stored in the cognitive map """
         from system.controller.local_controller.local_navigation import find_new_goal_vector
 
-        G = self.node_network
         delta_avg = 0
         pred_gvs = []  # goal vectors decoded using linear lookahead
         true_gvs = []  # analytically calculated goal vectors
@@ -257,8 +326,10 @@ class CognitiveMap(CognitiveMapInterface):
         else:
             env.mode = "linear_lookahead"
             # decode goal vectors from current position to every place cell on the cognitive map 
-            for i, p in enumerate(list(G.nodes)):
-                print("Decoding goal vector to place Cell", i, "out of", len(list(G.nodes)))
+            node_list = list(self.node_network.nodes)
+            nodes_length = len(node_list)
+            for i, p in enumerate(node_list):
+                print("Decoding goal vector to place Cell", i, "out of", nodes_length)
                 target_spiking = p.gc_connections
                 gc_network.set_as_target_state(target_spiking)
                 env.goal_pos = p.env_coordinates
@@ -276,20 +347,19 @@ class CognitiveMap(CognitiveMapInterface):
                 true_gvs.append(true_gv)
                 error.append(error_gv)
 
-            delta_avg /= len(list(G.nodes))
+            delta_avg /= nodes_length
 
         print("Average error:", delta_avg)
 
         # Plot the drift error on the cognitive map
-        import matplotlib.pyplot as plt
         import system.plotting.plotHelper as pH
 
         plt.figure()
         ax = plt.gca()
         pH.add_environment(ax, env)
         pH.add_robot(ax, env)
-        pos = nx.get_node_attributes(G, 'pos')
-        nx.draw_networkx_nodes(G, pos, node_color='#0065BD80', node_size=3000)
+        pos = nx.get_node_attributes(self.node_network, 'pos')
+        nx.draw_networkx_nodes(self.node_network, pos, node_color='#0065BD80', node_size=3000)
 
         directory = "experiments/"
         if not os.path.exists(directory):
@@ -313,41 +383,72 @@ class CognitiveMap(CognitiveMapInterface):
 
         plt.show()
 
-    def postprocess(self):
+    def postprocess_topological_navigation(self):
         self.update_reachabilities()
 
 
 class LifelongCognitiveMap(CognitiveMapInterface):
     def __init__(
             self,
-            reachability_estimator=None,
-            load_data_from=None,
-            debug=False
+            reachability_estimator: ReachabilityEstimator = None,
+            load_data_from: str = None,
+            debug: bool = False,
+            add_edges: bool = True,
+            remove_edges: bool = True,
+            remove_nodes: bool = True,
+            add_nodes: bool = True
     ):
+        """ Implements a cognitive map with lifelong learning algorithm.
+
+        arguments:
+        reachability_estimator: ReachabilityEstimator -- reachability estimator that should be used for defining the
+                                                         proximity of nodes
+        load_data_from: str                           -- filename of the snapshot of the cognitive map, None if a new
+                                                         cognitive map is being created
+        debug: bool                                   -- enables logging
+        add_edges: bool                               -- defines if edge addition is enabled
+        remove_edges: bool                            -- defines if edge cleanup is enabled
+        remove_nodes: bool                            -- defines if node cleanup is enabled
+        add_nodes: bool                               -- defines if node addition is enabled
+        """
+
         super().__init__(reachability_estimator, load_data_from=load_data_from, debug=debug)
+        # values used for probabilistic calculations
         self.sigma = 0.015
         self.sigma_squared = self.sigma ** 2
         self.threshold_edge_removal = 0.5
         self.p_s_given_r = 0.55
         self.p_s_given_not_r = 0.15
 
-        self.add_edges = True
-        self.remove_edges = True
-        self.remove_nodes = True
-        self.add_nodes = True
+        self.add_edges = add_edges
+        self.remove_edges = remove_edges
+        self.add_nodes = add_nodes
+        self.remove_nodes = remove_nodes
 
-        self.merged = {}
+        self.min_node_degree_for_deletion = 4
+        self.max_number_unique_neighbors_for_deletion = 2
 
     def track_vector_movement(self, pc_firing: [float], created_new_pc: bool, pc: PlaceCell, **kwargs):
-        """Collects nodes"""
+        """ Incorporate changes to the map after each vector navigation tryout. Adds nodes during exploration phase and
+            edges during navigation.
+
+        arguments:
+        pc_firing: [float]                -- current firings of all place cells
+        created_new_pc: bool              -- indicates if a new place cell was created after vector navigation
+        pc: PlaceCell                     -- current location of the agent
+        kwargs:
+             exploration_phase: bool      -- indicates exploration or navigation phase
+             pc_network: PlaceCellNetwork -- place cell network
+
+        returns:
+        pc: PlaceCell                 -- current active node if it exists
+        """
         exploration_phase = kwargs.get('exploration_phase', True)
         pc_network = kwargs.get('pc_network', None)
-        # Check if we have entered a new place cell
         if exploration_phase and created_new_pc:
             is_mergeable, mergeable_values = self.is_mergeable(pc)
             if is_mergeable:
-                self.merged[pc] = mergeable_values
-                return None
+                return pc
             self.add_and_connect_node(pc)
         elif not exploration_phase and not created_new_pc:
             if self.add_edges:
@@ -358,7 +459,14 @@ class LifelongCognitiveMap(CognitiveMapInterface):
             return pc_network.place_cells[self.prior_idx_pc_firing]
         return None
 
-    def process_add_edge(self, pc_firing, pc_network):
+    def process_add_edge(self, pc_firing: [float], pc_network: PlaceCellNetwork):
+        """ Helper function. Decides if a new edge should be added between the last active node and the
+            current active node
+
+        arguments:
+        pc_firing: [float]           -- current firings of all place cells
+        pc_network: PlaceCellNetwork -- place cell network
+        """
         idx_pc_active = np.argmax(pc_firing)
         pc_active_firing = np.max(pc_firing)
 
@@ -368,8 +476,8 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                 # navigation, q is definitely reachable and the edge gets updated accordingly.
                 q = pc_network.place_cells[self.prior_idx_pc_firing]
                 pc_new = pc_network.place_cells[idx_pc_active]
-                if q in self.node_network and pc_new in self.node_network and q not in self.node_network[
-                    pc_new] and q != pc_new:
+                if (q in self.node_network and pc_new in self.node_network and
+                        q not in self.node_network[pc_new] and q != pc_new):
                     self.print_debug(f"adding edge [{self.prior_idx_pc_firing}-{idx_pc_active}]")
                     self.add_bidirectional_edge_to_map(q, pc_new,
                                                        sample_normal(0.5, self.sigma),
@@ -378,15 +486,27 @@ class LifelongCognitiveMap(CognitiveMapInterface):
                                                        sigma=self.sigma)
 
     def is_connectable(self, p: PlaceCell, q: PlaceCell) -> (bool, float):
-        """Check if two waypoints p and q are connectable."""
+        """ Helper function. Checks if two waypoints p and q are connectable."""
         return self.reach_estimator.get_reachability(p, q)
 
     def is_mergeable(self, p: PlaceCell) -> (bool, [bool]):
-        """Check if the waypoint p is mergeable with the existing graph"""
+        """ Helper function. Checks if the waypoint p is mergeable with the existing graph"""
         mergeable_values = [self.reach_estimator.is_same(p, q) for q in self.node_network.nodes]
         return any(self.reach_estimator.is_same(p, q) for q in self.node_network.nodes), mergeable_values
 
-    def track_topological_navigation(self, node_p, node_q, observation_p, observation_q, success):
+    def postprocess_vector_navigation(self, node_p: PlaceCell, node_q: PlaceCell, observation_p: PlaceCell,
+                                      observation_q: PlaceCell, success: bool):
+        """ Performs map processing after one full vector navigation. Updates edge connectivity probabilities.
+            May add new nodes and edges, and remove edges.
+
+        arguments:
+        node_p: PlaceCell        -- source node in the graph on the start of the vector navigation
+        node_q: PlaceCell        -- estimated target node in the graph
+        observation_q: PlaceCell -- actual location of the agent on the start of the vector navigation
+        observation_p: PlaceCell -- actual location of the agent after vector navigation
+        success: bool            -- indicates if the agent reached the target graph node
+        """
+
         if node_q == node_p:
             return
         if not success and observation_q not in self.node_network and self.add_nodes:
@@ -402,73 +522,87 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         if node_p not in self.node_network or node_q not in self.node_network[node_p]:
             return
 
+        self.update_edge_parameters(node_p, node_q, observation_p, success)
+        if not success and self.remove_edges:
+            if self.node_network[node_q][node_p]['connectivity_probability'] < self.threshold_edge_removal:
+                self.remove_bidirectional_edge(node_p, node_q)
+
+        self.print_debug(
+            f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: " +
+            f"success {success} conn {self.node_network[node_q][node_p]['connectivity_probability']}")
+
+    def update_edge_parameters(self, node_p: PlaceCell, node_q: PlaceCell, observation_p: PlaceCell, success: bool):
+        """ Helper function. Performs map processing after one full vector navigation.
+            Updates edge connectivity probabilities. May add new nodes and edges.
+
+        arguments:
+        node_p: PlaceCell        -- source node in the graph on the start of the vector navigation
+        node_q: PlaceCell        -- estimated target node in the graph
+        observation_q: PlaceCell -- actual location of the agent on the start of the vector navigation
+        observation_p: PlaceCell -- actual location of the agent after vector navigation
+        success: bool            -- indicates if the agent reached the target graph node
+        """
         edges = [self.node_network[node_p][node_q], self.node_network[node_q][node_p]]
 
-        def conditional_probability(s=True, r=True):
-            if s:
-                if r:
-                    return self.p_s_given_r
-                return self.p_s_given_not_r
-            if r:
-                return 1 - self.p_s_given_r
-            return 1 - self.p_s_given_not_r
-
-        # Update connectivity
-        t = conditional_probability(success, True) * edges[0]['connectivity_probability']
+        t = self.conditional_probability(success, True) * edges[0]['connectivity_probability']
         connectivity_probability = t / (
-                    t + conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
+                t + self.conditional_probability(success, False) * (1 - edges[0]['connectivity_probability']))
         connectivity_probability = min(connectivity_probability, 0.95)
         for edge in edges:
             edge['connectivity_probability'] = connectivity_probability
 
-        if not success and self.remove_edges:
-            if self.process_remove_edge(connectivity_probability, node_p, node_q):
-                return
-
-        # Update distance weight
         if success:
             weight = self.reach_estimator.get_reachability(observation_p, node_q)[1]
             sigma_ij_t_squared = edges[0]['sigma'] ** 2
             mu_ij_t = edges[0]['mu']
             mu = (self.sigma_squared * mu_ij_t + sigma_ij_t_squared * weight) / (
-                        sigma_ij_t_squared + self.sigma_squared)
+                    sigma_ij_t_squared + self.sigma_squared)
             sigma = np.sqrt(1 / (1 / sigma_ij_t_squared + 1 / self.sigma_squared))
-            weight = sample_normal(mu, sigma)  # weight ~ N(mu, sigma^2)
+            weight = sample_normal(mu, sigma)
 
             for edge in edges:
                 edge['mu'] = mu
                 edge['sigma'] = sigma
                 edge['weight'] = weight
 
-        self.print_debug(
-            f"edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: success {success} conn {edges[0]['connectivity_probability']}")
+    def conditional_probability(self, s: bool = True, r: bool = True):
+        """ Helper function, computes conditional probability values for edge connectivity computations """
+        if s:
+            if r:
+                return self.p_s_given_r
+            return self.p_s_given_not_r
+        if r:
+            return 1 - self.p_s_given_r
+        return 1 - self.p_s_given_not_r
 
-    def process_remove_edge(self, connectivity_probability, node_p, node_q):
-        if connectivity_probability < self.threshold_edge_removal:
-            # Prune the edge when p(r_ij^{t+1}|s) < Rp
-            self.node_network.remove_edge(node_p, node_q)
-            self.node_network.remove_edge(node_q, node_p)
-            self.print_debug(
-                f"deleting edge [{list(self.node_network.nodes).index(node_p)}-{list(self.node_network.nodes).index(node_q)}]: conn {connectivity_probability}")
-            return True
-        return False
+    def remove_bidirectional_edge(self, node_p: PlaceCell, node_q: PlaceCell):
+        """ Helper function, removes bidirectional edge between two nodes """
+        self.node_network.remove_edge(node_p, node_q)
+        self.node_network.remove_edge(node_q, node_p)
+        nodelist = list(self.node_network.nodes)
+        self.print_debug(
+            f"deleting edge [{nodelist.index(node_p)}-{nodelist.index(node_q)}]: " +
+            f"conn {self.node_network[node_q][node_p]['connectivity_probability']}")
 
     def deduplicate_nodes(self):
-        if not self.remove_nodes:
-            return
+        """ Helper function, performs node cleanup. If nodes have too many common neighbors,
+            they are considered duplicates.
+        """
         nodes = list(self.node_network.nodes)
         deleted = []
+
+        def skip_pair(node_p: PlaceCell, node_q: PlaceCell):
+            return (node_p in deleted or node_q in deleted or node_q == node_p or
+                    node_q not in self.node_network or node_p not in self.node_network or
+                    node_p not in self.node_network[node_q])
+
         for node_p in nodes:
             for node_q in nodes:
-                if node_p in deleted or node_q in deleted or node_q == node_p or node_q not in self.node_network or node_p not in self.node_network or node_p not in \
-                        self.node_network[node_q]:
+                if skip_pair(node_p, node_q):
                     continue
-                set_p = set(self.node_network[node_p])
-                set_q = set(self.node_network[node_q])
-                common = len(set_p.intersection(set_q))
-                if common >= len(set_p) - 2 and common >= len(set_q) - 2 and len(set_p) >= 4 and len(set_q) >= 4:
-                    self.print_debug(
-                        f"Nodes {nodes.index(node_p)} and {nodes.index(node_q)} are duplicates, deleting {nodes.index(node_p)}")
+                if self.are_duplicates(node_p, node_q):
+                    self.print_debug(f"Nodes {nodes.index(node_p)} and {nodes.index(node_q)} are duplicates, " +
+                                     f"deleting {nodes.index(node_p)}")
                     for neighbor in self.node_network[node_p]:
                         if neighbor not in self.node_network[node_q] and neighbor != node_q:
                             edge_attributes_dict = self.node_network.edges[node_p, neighbor]
@@ -477,11 +611,34 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         for node in deleted:
             self.node_network.remove_node(node)
 
-    def postprocess(self):
+    def are_duplicates(self, node_p: PlaceCell, node_q: PlaceCell):
+        """ Helper function, checks if two nodes are duplicates of each other """
+        set_p = set(self.node_network[node_p])
+        set_q = set(self.node_network[node_q])
+        common = len(set_p.intersection(set_q))
+
+        return common >= len(set_p) - self.max_number_unique_neighbors_for_deletion and common >= len(
+            set_q) - self.max_number_unique_neighbors_for_deletion and len(
+            set_p) >= self.min_node_degree_for_deletion and len(set_q) >= self.min_node_degree_for_deletion
+
+    def postprocess_topological_navigation(self):
+        """ Performs map processing after one full topological navigation cycle. Calls node deduplication if enabled """
+
         self.prior_idx_pc_firing = None
-        self.deduplicate_nodes()
+        if not self.remove_nodes:
+            self.deduplicate_nodes()
 
     def locate_node(self, pc: PlaceCell):
+        """ Maps a location of the given place cell to the node in the graph
+
+        arguments:
+        pc: PlaceCell    -- a place cell to be located
+
+        returns:
+        is_located: bool -- indicates if a close enough node exists
+        node: PlaceCell  -- a node in the graph or a given place cell if no node is found
+        """
+
         existing_node, located_pc = super().locate_node(pc)
         if existing_node:
             return existing_node, located_pc
@@ -490,6 +647,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
         return True, pc
 
     def add_and_connect_node(self, pc: PlaceCell):
+        """ Helper function. Adds new node to the map and edges to adjacent nodes with standard parameters  """
         self.add_node_to_map(pc)
         for node in self.node_network.nodes:
             if node != pc:
@@ -504,7 +662,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
 
 if __name__ == "__main__":
-    """ Load, draw and update the cognitive map """
+    """ Load and visualize cognitive map + observations with grid cell spikings on both ends of distinct edges  """
     from system.controller.simulation.pybulletEnv import PybulletEnvironment
 
     # Adjust what sort of RE you want to use for connecting nodes
@@ -516,20 +674,19 @@ if __name__ == "__main__":
 
     re = init_reachability_estimator(connection_re_type, weights_file=weights_filename, env_model=env_model,
                                      debug=debug, with_spikings=True)
-
+    # Select the version of the cognitive map to use
     cm = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_filename)
-
-    # Draw the cognitive map
     cm.draw()
+
     dt = 1e-2
     env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True)
     import random
 
     for i in range(10):
+        # Select an edge to visualize or use a random one
         start, finish = random.sample(list(cm.node_network.edges()), 1)[0]
 
         plot_cognitive_map_path(cm.node_network, [start, finish], env)
-        from matplotlib import pyplot as plt
 
         fig = plt.figure()
 
