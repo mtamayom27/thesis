@@ -57,7 +57,7 @@ def reachability_estimator_factory(type: str = 'distance', **kwargs):
 
 
 class ReachabilityEstimator:
-    def __init__(self, threshold_same: float, threshold_reachable: float, device:str = 'cpu', debug: bool = False):
+    def __init__(self, threshold_same: float, threshold_reachable: float, device: str = 'cpu', debug: bool = False):
         """ Abstract base class defining the interface for reachability estimator implementations.
 
         arguments:
@@ -123,7 +123,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
 
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
-    def __init__(self, device:str = 'cpu', debug: bool = True, weights_file: str = None, with_spikings: bool = False,
+    def __init__(self, device: str = 'cpu', debug: bool = True, weights_file: str = None, with_spikings: bool = False,
                  weights_folder: str = get_path(), backbone: str = 'convolutional', batch_size: int = 64):
         """ Creates a network-based reachability estimator that judges reachability
             between two locations based on observations and grid cell spikings
@@ -188,6 +188,7 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         returns:
         [float] -- reachability values
         """
+
         def get_prediction(src_batch: [numpy.ndarray | torch.Tensor], dst_batch: [numpy.ndarray | torch.Tensor],
                            src_spikings: [numpy.ndarray] = None, goal_spikings: [numpy.ndarray] = None) -> [float]:
             """ Helper function, main logic for predicting reachability for multiple location pairs """
@@ -211,10 +212,15 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                 else:
                     raise RuntimeError('Unsupported datatype: %s' % type(dst_batch[0]))
                 if self.with_spikings:
-                    return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.from_numpy(src_batch).float(), torch.from_numpy(dst_batch).float(), batch_src_spikings=torch.from_numpy(src_spikings).float(), batch_dst_spikings=torch.from_numpy(goal_spikings).float())
+                    return networks.get_prediction(self.nets, self.backbone, self.model_variant,
+                                                   torch.from_numpy(src_batch).float(),
+                                                   torch.from_numpy(dst_batch).float(),
+                                                   batch_src_spikings=torch.from_numpy(src_spikings).float(),
+                                                   batch_dst_spikings=torch.from_numpy(goal_spikings).float())
 
-                return networks.get_prediction(self.nets, self.backbone, self.model_variant, torch.from_numpy(src_batch).float(),
-                                       torch.from_numpy(dst_batch).float())
+                return networks.get_prediction(self.nets, self.backbone, self.model_variant,
+                                               torch.from_numpy(src_batch).float(),
+                                               torch.from_numpy(dst_batch).float())
 
         assert len(starts) == len(goals)
         n = len(starts)
@@ -224,9 +230,9 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         batch_size = min(self.batch_size, len(starts))
         while n_remaining > 0:
             results.append(get_prediction(starts[n - n_remaining: n - n_remaining + batch_size],
-                                  goals[n - n_remaining: n - n_remaining + batch_size],
-                                  src_spikings[n - n_remaining: n - n_remaining + batch_size],
-                                  goal_spikings[n - n_remaining: n - n_remaining + batch_size])[0])
+                                          goals[n - n_remaining: n - n_remaining + batch_size],
+                                          src_spikings[n - n_remaining: n - n_remaining + batch_size],
+                                          goal_spikings[n - n_remaining: n - n_remaining + batch_size])[0])
             n_remaining -= batch_size
         return torch.cat(results, dim=0).data.cpu().numpy()
 
