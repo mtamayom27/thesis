@@ -1,26 +1,25 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
-*    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
-*    Author: "Tim Engelmann"
-*    Date: 28.09.2021
-*    Code version: 1.0
-*    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
-'''
+"""
+
 from random import random
 
 import networkx as nx
 import numpy as np
-import types
 
 import sys
 import os
 
 from matplotlib import pyplot as plt
 
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory, \
-    ReachabilityEstimator, NetworkReachabilityEstimator
+from system.controller.reachability_estimator.reachabilityEstimation import (reachability_estimator_factory,
+                                                                             ReachabilityEstimator)
 from system.plotting.plotHelper import add_environment, TUM_colors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -98,7 +97,8 @@ class PlaceCell:
         return firing
 
     def __eq__(self, obj):
-        return isinstance(obj, PlaceCell) and np.isclose(obj.env_coordinates, self.env_coordinates, rtol=1e-08, atol=1e-10, equal_nan=False).all()
+        return isinstance(obj, PlaceCell) and np.isclose(obj.env_coordinates, self.env_coordinates, rtol=1e-08,
+                                                         atol=1e-10, equal_nan=False).all()
 
     def __hash__(self):
         return hash(tuple(self.env_coordinates))
@@ -138,7 +138,9 @@ class PlaceCellNetwork:
 
     def in_range(self, reach: [float]) -> bool:
         """ Determine whether one value meets the threshold """
-        return any([self.reach_estimator.pass_threshold(reach_value, self.reach_estimator.threshold_same) for reach_value in reach])
+        return any(
+            [self.reach_estimator.pass_threshold(reach_value, self.reach_estimator.threshold_same) for reach_value in
+             reach])
 
     def track_movement(self, gc_network, observations, coordinates, creation_allowed):
         """Keeps track of current grid cell firing"""
@@ -203,8 +205,9 @@ if __name__ == '__main__':
     # setup place cell network, cognitive map and grid cell network (from data)
     weights_file = "mse_weights.50"
     env_model = "Savinov_val3"
-    
-    re = reachability_estimator_factory("neural_network", weights_file=weights_file, env_model=env_model, with_spikings=True)
+
+    re = reachability_estimator_factory("neural_network", weights_file=weights_file, env_model=env_model,
+                                        with_spikings=True)
     pc_network = PlaceCellNetwork(from_data=True, reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from="after_exploration.gpickle")
     gc_network = setup_gc_network(1e-2)
@@ -217,22 +220,24 @@ if __name__ == '__main__':
                               start=list(fr.env_coordinates))
     gc_network.set_as_current_state(fr.gc_connections)
     stop, pc = vector_navigation(env, list(to.env_coordinates), gc_network, to.gc_connections, model="combo",
-                             obstacles=True, exploration_phase=False, pc_network=pc_network,
-                             pod=pod, cognitive_map=cognitive_map, plot_it=True, step_limit=1000)
+                                 obstacles=True, exploration_phase=False, pc_network=pc_network,
+                                 pod=pod, cognitive_map=cognitive_map, plot_it=True, step_limit=1000)
 
     fig, ax = plt.subplots()
 
     if cognitive_map:
         G = cognitive_map.node_network
         pos = nx.get_node_attributes(G, 'pos')
-        nx.draw(G,pos,node_color='#0065BD',node_size=10)
+        nx.draw(G, pos, node_color='#0065BD', node_size=10)
         G = G.to_undirected()
         nx.draw_networkx_nodes(G, pos, node_color='#0065BD60', node_size=40)
         nx.draw_networkx_edges(G, pos, edge_color='#99999980')
     if pc:
-        circle2 = plt.Circle((pc.env_coordinates[0], pc.env_coordinates[1]), 0.2, color=TUM_colors['TUMAccentGreen'], alpha=1)
+        circle2 = plt.Circle((pc.env_coordinates[0], pc.env_coordinates[1]), 0.2, color=TUM_colors['TUMAccentGreen'],
+                             alpha=1)
         ax.add_artist(circle2)
-    circle1 = plt.Circle((env.xy_coordinates[-1][0], env.xy_coordinates[-1][1]), 0.2, color=TUM_colors['TUMAccentOrange'], alpha=1)
+    circle1 = plt.Circle((env.xy_coordinates[-1][0], env.xy_coordinates[-1][1]), 0.2,
+                         color=TUM_colors['TUMAccentOrange'], alpha=1)
     ax.add_artist(circle1)
     add_environment(ax, env)
     plt.show()

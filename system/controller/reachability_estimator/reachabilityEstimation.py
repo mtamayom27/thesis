@@ -1,9 +1,9 @@
 """ This code has been adapted from:
 ***************************************************************************************
-*    Title: "Scaling Local Control to Large Scale Topological Navigation"
-*    Author: "Xiangyun Meng, Nathan Ratliff, Yu Xiang and Dieter Fox"
-*    Date: 2020
-*    Availability: https://github.com/xymeng/rmp_nav
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
 """

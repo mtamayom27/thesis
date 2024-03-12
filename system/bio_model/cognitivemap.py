@@ -1,10 +1,9 @@
 """ This code has been adapted from:
 ***************************************************************************************
-*    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
-*    Author: "Tim Engelmann"
-*    Date: 28.09.2021
-*    Code version: 1.0
-*    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
 """
@@ -19,7 +18,6 @@ from system.plotting.helper import plot_cognitive_map_path
 from system.plotting.plotThesis import plot_grid_cell
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from system.utils import sample_normal
 from system.bio_model.placecellModel import PlaceCell, PlaceCellNetwork
 from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory, \
     ReachabilityEstimator
@@ -29,6 +27,10 @@ def get_path_top() -> str:
     """ returns path to the folder of the current file """
     dirname = os.path.join(os.path.dirname(__file__))
     return dirname
+
+
+def sample_normal(m, s):
+    return np.random.normal(m, s)
 
 
 class CognitiveMapInterface:

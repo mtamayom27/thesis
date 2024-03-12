@@ -1,3 +1,12 @@
+""" This code has been adapted from:
+***************************************************************************************
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
+*
+***************************************************************************************
+"""
 import sys
 import os
 

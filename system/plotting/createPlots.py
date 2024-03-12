@@ -1,3 +1,12 @@
+""" This code has been adapted from:
+***************************************************************************************
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
+*
+***************************************************************************************
+"""
 import networkx as nx
 
 from plotThesis import *
@@ -13,7 +22,6 @@ from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.controller.simulation.pybulletEnv import PybulletEnvironment
 from system.controller.topological.topological_navigation import TopologicalNavigation
 from system.controller.simulation.environment.map_occupancy_helpers.map_visualizer import OccupancyMapVisualizer
-import system.plotting.plotResults as plot
 
 
 def plt_grid_cell_decoder():

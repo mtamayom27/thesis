@@ -1,19 +1,18 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
-*    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
-*    Author: "Tim Engelmann"
-*    Date: 28.09.2021
-*    Code version: 1.0
-*    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
-'''
+"""
 
 import os
 import sys
 
 from system.bio_model.cognitivemap import CognitiveMapInterface
-from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
+from system.bio_model.placecellModel import PlaceCellNetwork
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from system.controller.local_controller.decoder.linearLookaheadNoRewards import *

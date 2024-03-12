@@ -1,13 +1,12 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
-*    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
-*    Author: "Tim Engelmann"
-*    Date: 28.09.2021
-*    Code version: 1.0
-*    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
-'''
+"""
 import numpy as np
 import os
 
@@ -32,8 +31,8 @@ def compute_ds(x1, x2):
     returns dx from each neuron to each neuron, matrix of size n^2 x n^2
     """
     n = int(np.sqrt(len(x1)))  # size of grid cell sheet (width and height)
-    x1 = np.tile(x1, (n**2, 1))  # tile vector to fit size n^2 x n^2
-    x2 = np.transpose(np.tile(x2, (n**2, 1)))  # tile vector to fit size n^2 x n^2, but transpose
+    x1 = np.tile(x1, (n ** 2, 1))  # tile vector to fit size n^2 x n^2
+    x2 = np.transpose(np.tile(x2, (n ** 2, 1)))  # tile vector to fit size n^2 x n^2, but transpose
     dx1 = np.abs(x2 - x1)  # calculate distance from each neuron to each neuron
     dx2 = n - dx1  # as edges of grid cell sheet are connected dx < n -> calculate other way
     dx = np.min([dx1, dx2], axis=0)  # choose shortest path (left or right)
@@ -72,17 +71,18 @@ def ds_dt(s, w, b, tau):
 
 class GridCellModule:
     """One GridCellModule holds the information of a sheet of n x n neurons"""
+
     def __init__(self, n, gm, dt, data=None):
 
         self.n = n  # Grid Cell sheet size (height and width)
         self.gm = gm  # velocity gain factor
 
-        array_length = n**2
+        array_length = n ** 2
 
         # connection weight matrix from each to each neuron
         self.w = np.random.random_sample((array_length, array_length))
 
-        self.s = np.random.rand(array_length) * 10**-4  # firing vector of size (n^2 x 1); random firing at beginning
+        self.s = np.random.rand(array_length) * 10 ** -4  # firing vector of size (n^2 x 1); random firing at beginning
         self.t = self.s  # target grid cell firing (of goal or home-base)
         self.s_virtual = self.s  # used for linear lookahead to preplay trajectories, without actually moving
         self.dt = dt  # time step size
@@ -137,7 +137,7 @@ class GridCellModule:
             # s = sol.y[:, 0]
 
             # It is faster to just apply the implicit euler several times until targeted time step is reached
-            for n in range(int(dt_alternative/self.dt)):
+            for n in range(int(dt_alternative / self.dt)):
                 s0 = implicit_euler(s0, self.w, b, tau, self.dt)
             s = s0
 
@@ -151,6 +151,7 @@ class GridCellModule:
 
 class GridCellNetwork:
     """GridCellNetwork holds all Grid Cell Modules"""
+
     def __init__(self, n, M, dt, gmin, gmax=None, from_data=False, gc_name="gc_model_6"):
 
         self.gc_modules = []  # array holding objects GridCellModule
@@ -168,13 +169,13 @@ class GridCellNetwork:
             self.initialize_network(nr_steps_init, "s_vectors_initialized.npy")
         else:
             # Load previous data
-            
+
             # get the correct filepath
             filename = self.get_path(gc_name)
 
-            w_vectors = np.load(filename+"/w_vectors.npy")
-            h_vectors = np.load(filename+"/h_vectors.npy")
-            gm_values = np.load(filename+"/gm_values.npy")
+            w_vectors = np.load(filename + "/w_vectors.npy")
+            h_vectors = np.load(filename + "/h_vectors.npy")
+            gm_values = np.load(filename + "/gm_values.npy")
 
             n = int(np.sqrt(len(w_vectors[0][0])))
             for m, gm in enumerate(gm_values):
@@ -204,12 +205,12 @@ class GridCellNetwork:
                 # plot_grid_cell_modules(self.gc_modules, i)
                 # plot_3D_sheets(self.gc_modules, i)
         print("Finished Initialization of nr_steps:", nr_steps)
-#        plot_grid_cell_modules(self.gc_modules, nr_steps)
-#        plot_3D_sheets(self.gc_modules, nr_steps)
+        #        plot_grid_cell_modules(self.gc_modules, nr_steps)
+        #        plot_3D_sheets(self.gc_modules, nr_steps)
 
         self.save_gc_spiking(filename)
 
-    def load_initialized_network(self, filename,gc_name = None):
+    def load_initialized_network(self, filename, gc_name=None):
         filepath = self.get_path(gc_name)
         s_vectors = np.load(filepath + "/" + filename)
         for m, gc in enumerate(self.gc_modules):
@@ -246,7 +247,7 @@ class GridCellNetwork:
         s_vectors = self.consolidate_gc_spiking()
         directory = self.get_path()
 
-        np.save(directory+"/"+filename, s_vectors)
+        np.save(directory + "/" + filename, s_vectors)
 
     def set_current_as_target_state(self):
         for m, gc in enumerate(self.gc_modules):
@@ -262,7 +263,7 @@ class GridCellNetwork:
         for m, gc in enumerate(self.gc_modules):
             gc.s_virtual = np.copy(gc.s)
             gc.s_video_array.clear()
-     
+
     def set_as_current_state(self, gc_connections):
         """ new addition: set gc_connections as current state of the agent """
         for m, gc in enumerate(self.gc_modules):
@@ -274,15 +275,15 @@ class GridCellNetwork:
         for m, gc in enumerate(self.gc_modules):
             gc.t = t_vectors[m]
         print("Set loaded data as new target state:", filename)
-        #new addition: The target_spiking is needed for the linear lookahead calculation.
-        #this can be provided by place cells but we wanted to make the local controller independent of place cells
+        # new addition: The target_spiking is needed for the linear lookahead calculation.
+        # this can be provided by place cells but we wanted to make the local controller independent of place cells
         self.target_spiking = np.array(t_vectors)
-    
-    def get_path(self,gc_name=None):
+
+    def get_path(self, gc_name=None):
         ''' Return path to grid cell model '''
         dirname = os.path.dirname(__file__)
         if gc_name:
-            filename = os.path.join(dirname, "data/"+gc_name)
+            filename = os.path.join(dirname, "data/" + gc_name)
         else:
             filename = os.path.join(dirname, "data/gc_model")
 

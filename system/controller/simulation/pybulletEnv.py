@@ -1,13 +1,12 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
-*    Title: "Biologically inspired spatial navigation using vector-based and topology-based path planning"
-*    Author: "Tim Engelmann"
-*    Date: 28.09.2021
-*    Code version: 1.0
-*    Availability: https://drive.google.com/file/d/1g7I-n9KVVulybh1YeElSC-fvm9_XDoez/view
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
-'''
+"""
 from system.bio_model.gridcellModel import GridCellNetwork
 
 ''' Egocentric Ray Detection from:

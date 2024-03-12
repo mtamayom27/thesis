@@ -1,12 +1,12 @@
-''' This code has been adapted from:
+""" This code has been adapted from:
 ***************************************************************************************
-*    Title: "Scaling Local Control to Large Scale Topological Navigation"
-*    Author: "Xiangyun Meng, Nathan Ratliff, Yu Xiang and Dieter Fox"
-*    Date: 2020
-*    Availability: https://github.com/xymeng/rmp_nav
+*    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
+*    Author: "Johanna Latzel"
+*    Date: 12.03.2024
+*    Availability: CODE_PLACEHOLDER
 *
 ***************************************************************************************
-'''
+"""
 import math
 
 import torch
@@ -138,15 +138,18 @@ def get_grid_cell(batch_src_spikings, batch_dst_spikings):
     batch_similarity_scores = torch.zeros(6, batch_size)
 
     for ch in range(6):
-        batch_similarity_scores[ch] = compare_mse(batch_src_spikings[:, ch:ch + 1, :, :], batch_dst_spikings[:, ch:ch + 1, :, :])
+        batch_similarity_scores[ch] = compare_mse(batch_src_spikings[:, ch:ch + 1, :, :],
+                                                  batch_dst_spikings[:, ch:ch + 1, :, :])
     batch_similarity_scores = torch.FloatTensor(batch_similarity_scores)
     batch_similarity_scores = torch.transpose(batch_similarity_scores, 0, 1)
     batch_similarity_scores = (batch_similarity_scores * module_weights).sum(1) / module_weights.sum()
-    batch_similarity_scores = (torch.max(batch_similarity_scores, torch.fill(torch.zeros((batch_size,)), 0.99)) - 0.99) / 0.01
+    batch_similarity_scores = (torch.max(batch_similarity_scores,
+                                         torch.fill(torch.zeros((batch_size,)), 0.99)) - 0.99) / 0.01
     return batch_similarity_scores
 
 
-def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings):
+def get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings,
+                                 batch_dst_spikings):
     batch_size, c, h, w = dst_batch.size()
     if model_variant == "the_only_variant":
         # Extract features
@@ -233,9 +236,11 @@ def get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_s
     return reachability_prediction, position_prediction, angle_prediction
 
 
-def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation=None, batch_src_spikings=None, batch_dst_spikings=None):
+def get_prediction(nets, backbone, model_variant, src_batch, dst_batch, batch_transformation=None,
+                   batch_src_spikings=None, batch_dst_spikings=None):
     if backbone == 'convolutional':
-        return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation, batch_src_spikings, batch_dst_spikings)
+        return get_prediction_convolutional(nets, model_variant, src_batch, dst_batch, batch_transformation,
+                                            batch_src_spikings, batch_dst_spikings)
     elif backbone == 'res_net':
         return get_prediction_resnet(nets, model_variant, src_batch, dst_batch, batch_src_spikings, batch_dst_spikings)
     elif backbone == 'siamese':
