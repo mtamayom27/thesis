@@ -37,7 +37,7 @@ It had to be modified to work with Python3. Follow these instructions (https://g
 
 ## More Setup
 
-To use the data described in the thesis go to:
+To use the data described in the thesis go to: 
 
 
 This folder contains:
@@ -49,7 +49,7 @@ This folder contains:
 This code implements the methodology as well as performs the experiments described in the thesis.
 
 ### Simulation
-system/controller/simulation/pybullet_environment.py
+[system/controller/simulation/pybullet_environment.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/simulation/pybullet_environment.py)
 
 Test different environment and the camera by moving an agent with your keyboard and plotting its trajectory. Change between four different environments.
 
@@ -62,7 +62,7 @@ Available environments:
 ----
 
 ### Local Controller
-system/controller/local_controller/local_navigation.py
+[system/controller/local_controller/local_navigation.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/local_controller/local_navigation.py)
 
 Test navigating with the local controller using different movement vector and goal vector calculation methods in different environments.
 
@@ -79,7 +79,7 @@ Calculation of movement vector:
 - obstacles = False: the movement vector is the goal vector
 
 #### Obstacle Avoidance Test
-system/controller/local_controller/local_navigation.py
+[system/controller/local_controller/local_navigation.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/local_controller/local_navigation.py)
 
 Perform the experiments described in subsection 5.5.3 Obstacle Avoidance.
 Set ***experiment = "obstacle_avoidance"***
@@ -94,7 +94,7 @@ To plot any of the attempts set ***plot_it = True***.
 ----
 
 ### Reachability Estimator
-system/controller/reachability_estimator/reachability_estimation.py
+[system/controller/reachability_estimator/reachability_estimation.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/reachability_estimator/reachability_estimation.py)
 
 There are several methods of judging reachability available:
 - ***type = "distance"***: return distance between nodes
@@ -105,7 +105,7 @@ There are several methods of judging reachability available:
 To adjust what values are considered as reachable adjust the creation and connection thresholds in pc_network.py and cognitivemap.py.
 
 #### Trajectory Generation
-system/controller/reachability_estimator/data_generation/gen_trajectories.py
+[system/controller/reachability_estimator/data_generation/gen_trajectories.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/reachability_estimator/data_generation/gen_trajectories.py)
 
 Generate trajectories through the environment storing grid cell spikings and coordinates.
 
@@ -120,7 +120,7 @@ Parameterized:
 Adjust filename, env_model, num_traj, traj_length and cam_freq 
 
 #### Reachability Dataset Generation
-system/controller/reachability_estimator/data_generation/dataset.py
+[system/controller/reachability_estimator/data_generation/dataset.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/reachability_estimator/data_generation/dataset.py)
 
 Generate a dataset of reachability samples or load from an existing one.
     
@@ -139,7 +139,7 @@ Default: Time the generation of 50 samples
 ### Topological Navigation
 
 #### Exploration
-system/controller/topological/exploration_phase.py
+[system/controller/topological/exploration_phase.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/topological/exploration_phase.py)
 
 Perform the experiments described in subsection 5.3 Cognitive Map Construction
 
@@ -152,14 +152,14 @@ Adjust ***connection_re_type*** and ***creation_re_type***:
 To adjust what values are considered as reachable adjust the creation and connection thresholds in pc_network.py and cognitivemap.py.
 
 #### Cognitive Map
-system/bio_model/cognitive_map.py
+[system/bio_model/cognitive_map.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/bio_model/cognitive_map.py)
 
 Perform the experiments described in subsection 6.3 Cognitive Map Construction
 
 Update the connections on the cognitive map or draw it.
 
 #### Navigation
-system/controller/topological/topological_navigation.py
+[system/controller/topological/topological_navigation.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/topological/topological_navigation.py)
 
 Perform the experiments described in subsection 6.4.1 Topological Navigation and 6.6 Overall Performance
 Test navigation through the maze.
@@ -167,7 +167,7 @@ Test navigation through the maze.
 ----
 
 #### Plotting
-system/plotting/*.py
+[system/plotting/*.py](https://github.com/Fedannie/bio-inspired-navigation/tree/main/system/plotting)
 
 Functions that don't have direct references from the code were used 
 by generations of students for plot generation for the thesis.
