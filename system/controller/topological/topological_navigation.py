@@ -190,7 +190,7 @@ if __name__ == "__main__":
     """
 
     re_type = "neural_network"
-    re_weights_file = "mse_weights.50"
+    re_weights_file = "re_mse_weights.50"
     map_file = "after_exploration.gpickle"
     map_file_after_lifelong_learning = "after_exploration.gpickle"
     with_spikings = True

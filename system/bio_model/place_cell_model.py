@@ -203,7 +203,7 @@ if __name__ == '__main__':
     from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
     # setup place cell network, cognitive map and grid cell network (from data)
-    weights_file = "mse_weights.50"
+    weights_file = "re_mse_weights.50"
     env_model = "Savinov_val3"
 
     re = reachability_estimator_factory("neural_network", weights_file=weights_file, env_model=env_model,

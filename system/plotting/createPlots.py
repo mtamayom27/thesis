@@ -166,7 +166,7 @@ def create_exploration():
     # see cognitive_map.py
     creation_re_type = "firing"
     connection_re_type = "neural_network"
-    weights_file = "mse_weights.50"
+    weights_file = "re_mse_weights.50"
     cognitive_map_filename = "after_exploration.gpickle"
 
     re = reachability_estimator_factory(connection_re_type, weights_file=weights_file, env_model=env_model,

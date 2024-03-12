@@ -214,10 +214,11 @@ if __name__ == '__main__':
     path = os.path.join(path, "data/reachability")
     new_file = os.path.join(path, "reachability_combined_dataset.hd5")
 
-    filenames = ["long_trajectories.hd5", "reachability_dataset.hd5"]
+    # Combine multiple datasets in case you have multiple
+    filenames = ["trajectories.hd5", "reachability_dataset.hd5"]
     filenames = [os.path.join(path, fn) for fn in filenames]
     combine_datasets(new_file, filenames, "/")
 
-    # dataset = H5Dataset(new_file, external_link=False)
-    # dataset.display_sample(0)
-    # dataset.display_dataset()
+    dataset = H5Dataset(new_file, external_link=False)
+    dataset.display_sample(0)
+    dataset.display_dataset()

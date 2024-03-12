@@ -82,7 +82,7 @@ if __name__ == "__main__":
     """
 
     re_type = "neural_network"
-    re_weights_file = "mse_weights.50"
+    re_weights_file = "re_mse_weights.50"
     cognitive_map_filename = "after_exploration.gpickle"
     mode = "combo"
     env_model = "Savinov_val3"  # only one currently supported

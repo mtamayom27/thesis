@@ -413,7 +413,7 @@ if __name__ == '__main__':
     validate = False
 
     if validate:
-        hd5file = "long_trajectories.hd5"
+        hd5file = "trajectories.hd5"
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")
         filepath = os.path.join(directory, hd5file)
@@ -430,7 +430,7 @@ if __name__ == '__main__':
                  global_args['angle_loss_weight'])
     elif testing:
         # Testing
-        hd5file = "long_trajectories.hd5"
+        hd5file = "trajectories.hd5"
         directory = get_path()
         directory = os.path.join(directory, "data/reachability")
         filepath = os.path.join(directory, hd5file)
