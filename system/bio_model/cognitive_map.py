@@ -18,8 +18,8 @@ from system.plotting.helper import plot_cognitive_map_path
 from system.plotting.plotThesis import plot_grid_cell
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from system.bio_model.placecellModel import PlaceCell, PlaceCellNetwork
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory, \
+from system.bio_model.place_cell_model import PlaceCell, PlaceCellNetwork
+from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory, \
     ReachabilityEstimator
 
 
@@ -632,7 +632,7 @@ class LifelongCognitiveMap(CognitiveMapInterface):
 
 if __name__ == "__main__":
     """ Load and visualize cognitive map + observations with grid cell spikings on both ends of distinct edges  """
-    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
     # Adjust what sort of RE you want to use for connecting nodes
     connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"

@@ -10,7 +10,7 @@
 '''
 import numpy as np
 
-from system.bio_model.gridcellModel import GridCellNetwork
+from system.bio_model.grid_cell_model import GridCellNetwork
 
 active_threshold = 0.85
 

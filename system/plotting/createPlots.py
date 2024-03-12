@@ -13,13 +13,13 @@ from plotThesis import *
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from system.bio_model.cognitivemap import LifelongCognitiveMap
-from system.bio_model.placecellModel import PlaceCellNetwork
-from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
+from system.bio_model.cognitive_map import LifelongCognitiveMap
+from system.bio_model.place_cell_model import PlaceCellNetwork
+from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
 from system.controller.local_controller.local_navigation import setup_gc_network
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
+from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 from system.controller.simulation.environment.map_occupancy import MapLayout
-from system.controller.simulation.pybulletEnv import PybulletEnvironment
+from system.controller.simulation.pybullet_environment import PybulletEnvironment
 from system.controller.topological.topological_navigation import TopologicalNavigation
 from system.controller.simulation.environment.map_occupancy_helpers.map_visualizer import OccupancyMapVisualizer
 
@@ -163,7 +163,7 @@ def create_exploration():
             raise ValueError("No path found!")
         goals += new_wp
 
-    # see cognitivemap.py
+    # see cognitive_map.py
     creation_re_type = "firing"
     connection_re_type = "neural_network"
     weights_file = "mse_weights.50"

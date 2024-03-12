@@ -99,7 +99,7 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
 
     if env_model:
         # get the dimensions without having to adjust them here
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
+        from system.controller.simulation.pybullet_environment import PybulletEnvironment
         env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
 
     fig, ax = plt.subplots()
@@ -150,7 +150,7 @@ def plotTrajectoryInEnvironment(env, title="", xy_coordinates=None, env_model=No
 
 def plotStartGoalDataset(env_model, starts_goals):
     # get the dimensions without having to adjust them here
-    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    from system.controller.simulation.pybullet_environment import PybulletEnvironment
     env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
 
     fig, ax = plt.subplots()
@@ -166,7 +166,7 @@ def plotStartGoalDataset(env_model, starts_goals):
 
 
 def plotStartGoalPair(env_model, start_position, start_heading, target_position, target_heading):
-    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    from system.controller.simulation.pybullet_environment import PybulletEnvironment
     env = PybulletEnvironment(False, 1e-2, env_model, mode="analytical")
 
     fig, ax = plt.subplots()

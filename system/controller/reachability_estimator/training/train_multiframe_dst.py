@@ -68,7 +68,7 @@ def _save_model(nets, net_opts, epoch, global_args, model_file):
 def run_test_model(dataset):
     """ Test model on dataset. Logs accuracy, precision, recall and f1score. """
 
-    from system.controller.reachability_estimator.reachabilityEstimation import NetworkReachabilityEstimator
+    from system.controller.reachability_estimator.reachability_estimation import NetworkReachabilityEstimator
     filename = "trained_model_new.50"
     filepath = os.path.join(os.path.join(os.path.dirname(__file__), "../data/models"), filename)
     reach_estimator = NetworkReachabilityEstimator(weights_file=filepath)

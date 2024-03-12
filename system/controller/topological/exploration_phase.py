@@ -10,16 +10,16 @@
 import sys
 import os
 
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
+from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-from system.bio_model.gridcellModel import GridCellNetwork
+from system.bio_model.grid_cell_model import GridCellNetwork
 from system.controller.simulation.environment.map_occupancy import MapLayout
-from system.controller.simulation.pybulletEnv import PybulletEnvironment
+from system.controller.simulation.pybullet_environment import PybulletEnvironment
 from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network
-from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
-from system.bio_model.cognitivemap import LifelongCognitiveMap, CognitiveMapInterface
+from system.bio_model.place_cell_model import PlaceCellNetwork, PlaceCell
+from system.bio_model.cognitive_map import LifelongCognitiveMap, CognitiveMapInterface
 import system.plotting.plotResults as plot
 
 plotting = True  # if True: plot paths

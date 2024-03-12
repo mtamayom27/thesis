@@ -1,9 +1,9 @@
 # BA - Bio-Inspired Navigation
 
-Welcome to the Git Repo for the Bachelor Thesis on
+Welcome to the Git Repo for the Master Thesis on
 
-> Neurobiologically Inspired Navigation for
-Artificial Agents
+> Integrating Navigation Strategies and Dynamic Cognitive Mapping 
+> for Biologically Inspired Navigation
 
 In this file we explain the installation process and describe the use of some of the different files.
 For a detailed description and the reasoning behind this code, please refer to the thesis.
@@ -38,18 +38,18 @@ It had to be modified to work with Python3. Follow these instructions (https://g
 ## More Setup
 
 To use the data described in the thesis go to:
-https://syncandshare.lrz.de/getlink/fiRDKFDsyVqEDj5wFHcwau/data_submit.zip
+
 
 This folder contains:
 - experiments: the experiment results from the thesis
 - bio_data: model of grid cells, place cells and the cognitive map
-- RE: trajectory and reachability dataset for training as well as the final model
+- re: trajectory and reachability dataset for training as well as the final model
 
 ## Code
 This code implements the methodology as well as performs the experiments described in the thesis.
 
 ### Simulation
-system/controller/simulation/pybulletEnv.py
+system/controller/simulation/pybullet_environment.py
 
 Test different environment and the camera by moving an agent with your keyboard and plotting its trajectory. Change between four different environments.
 
@@ -57,7 +57,7 @@ Available environments:
 - plane
 - Savinov_test7
 - Savinov_val2
-- Savinov_val3
+- Savinov_val3 (default for all project stages)
 
 ----
 
@@ -75,27 +75,13 @@ Available decoders:
         then switches to slower linear lookahead for increased accuracy.
 
 Calculation of movement vector:
-- obstacles = True: combine the obstacle and goal vector to create the movement vector
+- obstacles = True: enable obstacle avoidance to create the movement vector
 - obstacles = False: the movement vector is the goal vector
 
-#### Decoder Test
-system/controller/local_controller/local_navigation.py
-
-Perform the experiments described in subsection 6.2.2 Goal Vector Computation.
-Set ***experiment = "vector_navigation"***
-
-Choose between the:
-- Available decoders: ***model = "pod" or "linear_lookahead" or "combo"***
-- different distances to the goal location: ***distance = 15 or 2 or x***
-- experiment types: 
-    - A) return to start: ***simple = True*** 
-    - B) navigate to goal, then return to start: ***simple = False*** 
-
-Plot your results using createPlots.py
 #### Obstacle Avoidance Test
 system/controller/local_controller/local_navigation.py
 
-Perform the experiments described in subsection 6.2.1 Obstacle Avoidance.
+Perform the experiments described in subsection 5.5.3 Obstacle Avoidance.
 Set ***experiment = "obstacle_avoidance"***
 
 - Choose between decoders: ***model = "analytical" or "combo"***
@@ -108,7 +94,7 @@ To plot any of the attempts set ***plot_it = True***.
 ----
 
 ### Reachability Estimator
-system/controller/reachability_estimator/reachabilityEstimation.py
+system/controller/reachability_estimator/reachability_estimation.py
 
 There are several methods of judging reachability available:
 - ***type = "distance"***: return distance between nodes
@@ -144,94 +130,92 @@ Generate or load and display a few samples.
 Parameterized call:
 - Save to/load from filename
 - Generate until there are num_samples samples
-- Use trahectories from traj_file
+- Use trajectories from traj_file
     
 Default: Time the generation of 50 samples
-
-#### Reachability Estimator Neural Network
-system/controller/reachability_estimator/training/train_multiframe_dst.py
-
-Perform the experiments described in subsection 6.3.1 Reachability Estimator
-
-Test or train the Reachability Estimator.
-Set ***testing = True*** to test the models performance on the test dataset.
-Set ***testing = False*** to train a model on the training dataset.
 
 ----
 
 ### Topological Navigation
 
 #### Exploration
-system/controller/topological/explorationPhase.py
+system/controller/topological/exploration_phase.py
 
-Perform the experiments described in subsection 6.3.2 Cognitive Map Creation
+Perform the experiments described in subsection 5.3 Cognitive Map Construction
 
 Create a cognitive map by exploring the environment.
 Adjust ***connection_re_type*** and ***creation_re_type***:
 -  types: "firing", "neural_network", "distance", "simulation", "view_overlap"
     - "firing": place cell firing value
     - others: see explanation for RE
-- connection: 
-    - ("all","instant"): all nodes are tested during creation
-    - ("radius", "delayed"): only nodes within 5m of each other are considered for connection, connection is calculated after exploration is over
 
 To adjust what values are considered as reachable adjust the creation and connection thresholds in pc_network.py and cognitivemap.py.
 
 #### Cognitive Map
-system/bio_model/cognitivemap.py
+system/bio_model/cognitive_map.py
 
-Perform the experiments described in subsection 6.3.2 Cognitive Map Creation
+Perform the experiments described in subsection 6.3 Cognitive Map Construction
 
 Update the connections on the cognitive map or draw it.
-Set ***testing=True*** to test the place cell drift of the cognitive map. Set ***from_data=False*** to recalculate the drift.
-
-To adjust what values are considered as reachable adjust the creation and connection thresholds in pc_network.py and cognitivemap.py.
 
 #### Navigation
-system/controller/topological/traj_following.py
+system/controller/topological/topological_navigation.py
 
-Perform the experiments described in subsection 6.3.3 Navigation in a Cluttered Environment
-Test navigation through the maze. 
-Adjust start and goal node.
+Perform the experiments described in subsection 6.4.1 Topological Navigation and 6.6 Overall Performance
+Test navigation through the maze.
 
 ----
+
+#### Plotting
+system/plotting/*.py
+
+Functions that don't have direct references from the code were used 
+by generations of students for plot generation for the thesis.
+They're not relevant for the project and might not work as expected.
+However, if you need to create a plot similar to the one in someone else's thesis,
+take a look at the functions in the underlying files, there might be something useful already.
+
 
 ## Code Structure
 
         .
         ├── range_libc                                  # Modified version of range_libc
         ├── system                                      # Navigation system
-        │   ├── bio_model                               # Scripts modeling grid cells, place cells and the cognitive map and required data
+        │   ├── bio_model                               # Scripts modeling biological entities
+        │   │   ├── place_cell_model.py                 # Implements place cells
+        │   │   ├── grid_cell_model.py                  # Implements grid cells
+        │   │   ├── cognitive_map.py                    # Implements a cognitive map and lifelong learning
         │   ├── controller                              # Scripts controlling the agent and environment
-        │   │   ├── local_controller                    # Scripts controlling local navigation
+        │   │   ├── local_controller                    # Performs local navigation
         │   │   │   ├── decoder                         # Scripts for different grid cell decoder mechanism
-        │   │   │   └── local_navigation.py             # Handles vector navigation and obstacle avoidance
+        │   │   │   └── local_navigation.py             # Implements vector navigation and obstacle avoidance
         │   │   ├── reachability_estimator              # Scripts and data for reachability estimation
-        │   │   │   ├── data                            # Store generated trajectories and reachability dataset
+        │   │   │   ├── data                            # Stores generated trajectories and reachability dataset
         │   │   │   ├── data_generation                 # Scripts for trajectory and reachability dataset generation
-        │   │   │   ├── training                        # Scripts for training the reachability estimator
-        │   │   │   ├── networks.py                     # Neural network structurere
-        │   │   │   └── reachabilityEstimation.py       # Handles different kinds of reachability estimation
+        │   │   │   ├── training                        # Scripts for training the reachability estimator and training data
+        │   │   │   ├── networks.py                     # Separate neural network modules that participate in the reachability estimator structure
+        │   │   │   └── reachability_estimation.py      # Implements different kinds of reachability estimation
         │   │   ├── simulation                          # Scripts and data for simulating the agent in the environment
         │   │   │   ├── environment                     # Scripts and data concerning the environment
         │   │   │   ├── p3dx                            # Data for the agent
-        │   │   │   └── pybulletEnv.py                  # Handles simulating steps in the environment
+        │   │   │   └── pybullet_environment.py         # Implements simulation steps in the environment
         │   │   └── topological                         # Scripts for topological navigation
-        │   │   │   ├── explorationPhase.py             # Explorting the environment
-        │   │   │   └── traj_following.py               # Navigating the environment
-        │   ├── plotting                                # Scripts to create plots
+        │   │   │   ├── exploration_phase.py            # Implements exploration of the environment
+        │   │   │   └── topological_navigation.py       # Implements topological navigation in the environment
+        │   ├── plotting                                # Scripts to create supplementary plots
         ├── README.md                                   # You are here. Overview of project
         └── requirements.txt                            # Required packages to install
 ## Further Questions
 
-To ask questions about the thesis or code please reach out to johanna.latzel@tum.de
+To ask questions about the thesis or code please reach out to anna.fedorova.se@gmail.com
 
 ## Acknowledgement
 
-This code was largely inspired and adapted from Engelmann(2021)[^c1] and Meng(2022)[^c2]
+This code was largely inspired and adapted from Latzel(2023)[^1], Engelmann(2021)[^2] and Meng(2022)[^3]
 
 
-[^c1]: Engelmann Tim, “Biologically inspired spatial navigation using vector-based
+[^1]: Latzel Johanna, "Neurobiologically inspired Navigation for Artificial Agents", Sept. 2023
+[^2]: Engelmann Tim, "Biologically inspired spatial navigation using vector-based
 and topology-based path planning", Sept. 2021
-[^c2]: Meng, X., N. Ratliff, Y. Xiang, and D. Fox , “Scaling Local Control to Large-
-Scale Topological Navigation.” 2020
+[^3]: Meng, X., N. Ratliff, Y. Xiang, and D. Fox , "Scaling Local Control to Large-
+Scale Topological Navigation." 2020

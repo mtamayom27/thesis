@@ -12,15 +12,15 @@ import numpy as np
 import sys
 import os
 
-from system.bio_model.gridcellModel import GridCellNetwork
-from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
-from system.controller.reachability_estimator.reachabilityEstimation import reachability_estimator_factory
+from system.bio_model.grid_cell_model import GridCellNetwork
+from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
+from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-from system.controller.simulation.pybulletEnv import PybulletEnvironment
-from system.bio_model.cognitivemap import LifelongCognitiveMap, CognitiveMapInterface
-from system.bio_model.placecellModel import PlaceCellNetwork, PlaceCell
+from system.controller.simulation.pybullet_environment import PybulletEnvironment
+from system.bio_model.cognitive_map import LifelongCognitiveMap, CognitiveMapInterface
+from system.bio_model.place_cell_model import PlaceCellNetwork, PlaceCell
 from system.controller.local_controller.local_navigation import vector_navigation, setup_gc_network
 import system.plotting.plotResults as plot
 

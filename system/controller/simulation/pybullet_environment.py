@@ -7,7 +7,7 @@
 *
 ***************************************************************************************
 """
-from system.bio_model.gridcellModel import GridCellNetwork
+from system.bio_model.grid_cell_model import GridCellNetwork
 
 ''' Egocentric Ray Detection from:
 ***************************************************************************************

@@ -11,13 +11,13 @@
 import os
 import sys
 
-from system.bio_model.cognitivemap import CognitiveMapInterface
-from system.bio_model.placecellModel import PlaceCellNetwork
+from system.bio_model.cognitive_map import CognitiveMapInterface
+from system.bio_model.place_cell_model import PlaceCellNetwork
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from system.controller.local_controller.decoder.linearLookaheadNoRewards import *
-from system.controller.local_controller.decoder.phaseOffsetDetector import PhaseOffsetDetectorNetwork
-from system.bio_model.gridcellModel import GridCellNetwork
+from system.controller.local_controller.decoder.linear_lookahead_no_rewards import *
+from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
+from system.bio_model.grid_cell_model import GridCellNetwork
 
 import system.plotting.plotResults as plot
 import numpy as np
@@ -74,7 +74,7 @@ def create_gc_spiking(start, goal):
     """
 
     dt = 1e-2
-    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    from system.controller.simulation.pybullet_environment import PybulletEnvironment
     env = PybulletEnvironment(False, dt, "plane", mode="analytical", start=list(start))
     env.goal_pos = goal
 
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         2B) choose a few combinations to test
     """
 
-    from system.controller.simulation.pybulletEnv import PybulletEnvironment
+    from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
     if not experiment:
         env_model = "Savinov_val3"
@@ -285,7 +285,7 @@ if __name__ == "__main__":
         # model = "analytical"
         model = "combo"
 
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
+        from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
         env = PybulletEnvironment(False, dt, env_model, "analytical", start=start)
 
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         actual_error_goal_array = []
         time_array = []
 
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
+        from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
         for i in range(0, nr_trials):
             # initialize grid cell network and create target spiking

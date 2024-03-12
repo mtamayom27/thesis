@@ -16,7 +16,7 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 
-from system.controller.simulation.pybulletEnv import PybulletEnvironment
+from system.controller.simulation.pybullet_environment import PybulletEnvironment
 from system.controller.local_controller.local_navigation import setup_gc_network, vector_navigation
 from system.controller.simulation.environment.map_occupancy import MapLayout
 

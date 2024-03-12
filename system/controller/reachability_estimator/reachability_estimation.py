@@ -16,7 +16,7 @@ import sys
 import os
 import system.controller.reachability_estimator.networks as networks
 from system.controller.simulation.environment.map_occupancy import MapLayout
-from system.bio_model.placecellModel import PlaceCell
+from system.bio_model.place_cell_model import PlaceCell
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -279,7 +279,7 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
 
         model = "combo"
 
-        from system.controller.simulation.pybulletEnv import PybulletEnvironment
+        from system.controller.simulation.pybullet_environment import PybulletEnvironment
         env = PybulletEnvironment(False, dt, self.env_model, "analytical", start=list(start_pos))
 
         over, _ = vector_navigation(env, list(goal_pos), gc_network, gc_spiking=target_spiking, model=model,
