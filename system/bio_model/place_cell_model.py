@@ -3,7 +3,7 @@
 *    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
 *    Author: "Johanna Latzel"
 *    Date: 12.03.2024
-*    Availability: CODE_PLACEHOLDER
+*    Availability: https://nextcloud.in.tum.de/index.php/s/6wHp327bLZcmXmR
 *
 ***************************************************************************************
 """
