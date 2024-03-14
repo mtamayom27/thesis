@@ -52,12 +52,19 @@ This code implements the methodology as well as performs the experiments describ
 [system/controller/simulation/pybullet_environment.py](https://github.com/Fedannie/bio-inspired-navigation/blob/main/system/controller/simulation/pybullet_environment.py)
 
 Test different environment and the camera by moving an agent with your keyboard and plotting its trajectory. Change between four different environments.
+Press arrow keys to move, SPACE to visualize egocentric rays with obstacle detection and  BACKSPACE to exit.
 
 Available environments:
-- plane
-- Savinov_test7
-- Savinov_val2
-- Savinov_val3 (default for all project stages)
+
+    - plane
+    - obstacle_map_0    --\
+    - obstacle_map_1       \ Environments to test obstacle avoidance
+    - obstacle_map_2       /
+    - obstacle_map_3    --/
+    - Savinov_test7
+    - Savinov_val2
+    - Savinov_val3 (default for all project stages)
+
 
 ----
 

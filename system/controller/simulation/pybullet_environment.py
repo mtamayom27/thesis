@@ -681,19 +681,24 @@ class PybulletEnvironment:
 
 
 if __name__ == "__main__":
-    print("Test keyboard movement an plotting in different environments. Press BACKSPACE to exit.")
     """
+    Test keyboard movement an plotting in different environments. 
+    Press arrow keys to move, SPACE to visualize egocentric rays with obstacle detection and  BACKSPACE to exit.
+    
     Available environments:
-    - plane: just a plane
+    - plane
+    - obstacle_map_0
+    - obstacle_map_1
+    - obstacle_map_2
+    - obstacle_map_3
     - Savinov_test7
     - Savinov_val2
     - Savinov_val3
     """
     # env_model = "plane"
-    env_model = "obstacle_map_0"
     # env_model = "Savinov_test7"
     # env_model = "Savinov_val2"
-    # env_model = "Savinov_val3"
+    env_model = "Savinov_val3"
 
     dt = 1e-2
     env = PybulletEnvironment(True, dt, env_model, mode="keyboard", start=[-1, -2])
