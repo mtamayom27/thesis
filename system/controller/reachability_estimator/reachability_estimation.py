@@ -43,15 +43,15 @@ def reachability_estimator_factory(type: str = 'distance', **kwargs):
         ReachabilityEstimator object of the corresponding type
     """
     if type == 'distance':
-        return DistanceReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
+        return DistanceReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False))
     elif type == 'neural_network':
-        return NetworkReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
-                                            kwargs.get('weights_file', None), kwargs.get('with_spikings', False))
+        return NetworkReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False),
+                                            weights_file=kwargs.get('weights_file', None), with_spikings=kwargs.get('with_spikings', False))
     elif type == 'simulation':
-        return SimulationReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False),
-                                               kwargs.get('env_model', None))
+        return SimulationReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False),
+                                               env_model=kwargs.get('env_model', None))
     elif type == 'view_overlap':
-        return ViewOverlapReachabilityEstimator(kwargs.get('device', 'cpu'), kwargs.get('debug', False))
+        return ViewOverlapReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False))
     print("Reachability estimator type not defined: " + type)
     return None
 
@@ -124,7 +124,7 @@ class DistanceReachabilityEstimator(ReachabilityEstimator):
 
 class NetworkReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device: str = 'cpu', debug: bool = True, weights_file: str = None, with_spikings: bool = False,
-                 weights_folder: str = get_path(), backbone: str = 'convolutional', batch_size: int = 64):
+                 weights_folder: str = None, backbone: str = 'convolutional', batch_size: int = 64):
         """ Creates a network-based reachability estimator that judges reachability
             between two locations based on observations and grid cell spikings
 
@@ -141,6 +141,8 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         super().__init__(threshold_same=0.933, threshold_reachable=0.4, device=device, debug=debug)
 
         self.with_spikings = with_spikings
+        if weights_folder is None:
+            weights_folder = os.path.join(get_path(), "data/models")
         weights_filepath = os.path.join(weights_folder, weights_file)
         state_dict = torch.load(weights_filepath, map_location='cpu')
         self.print_debug('loaded %s' % weights_file)
@@ -282,7 +284,7 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
         from system.controller.simulation.pybullet_environment import PybulletEnvironment
         env = PybulletEnvironment(False, dt, self.env_model, "analytical", start=list(start_pos))
 
-        over, _ = vector_navigation(env, list(goal_pos), gc_network, gc_spiking=target_spiking, model=model,
+        over, _ = vector_navigation(env, list(goal_pos), gc_network, target_gc_spiking=target_spiking, model=model,
                                     step_limit=750, plot_it=False)
 
         if over == 1:

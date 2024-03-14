@@ -10,8 +10,6 @@
 import sys
 import os
 
-from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from system.bio_model.grid_cell_model import GridCellNetwork
@@ -34,7 +32,7 @@ def print_debug(*params):
 
 
 def waypoint_movement(path: [PlaceCell], env_model: str, gc_network: GridCellNetwork, pc_network: PlaceCellNetwork,
-                      cognitive_map: CognitiveMapInterface, mode: str = "combo"):
+                      cognitive_map: CognitiveMapInterface):
     """ Navigates the agent on the given path and builds the cognitive map.
         The local controller navigates the path analytically and updates the pc_network and the cognitive_map.
     
@@ -61,11 +59,11 @@ def waypoint_movement(path: [PlaceCell], env_model: str, gc_network: GridCellNet
     if plotting:
         map_layout.draw_path(goals)
 
-    env = PybulletEnvironment(False, dt, env_model, mode, build_data_set=True, start=path[0])
+    env = PybulletEnvironment(False, dt, env_model, "analytical", build_data_set=True, start=path[0])
 
     for i, goal in enumerate(goals):
         print_debug(f"new waypoint with coordinates {goal}.", f'{i / len(goals) * 100} % completed.')
-        vector_navigation(env, goal, gc_network, model=mode, step_limit=5000, obstacles=False,
+        vector_navigation(env, goal, gc_network, model="analytical", step_limit=5000, obstacles=False,
                           plot_it=plotting, exploration_phase=True, pc_network=pc_network, cognitive_map=cognitive_map)
         if plotting and (i + 1) % 100 == 0:
             cognitive_map.draw()
@@ -80,11 +78,11 @@ if __name__ == "__main__":
     Create a cognitive map by exploring the environment. 
     Agent follows a hard-coded path to explore the environment and build the cognitive map. 
     """
+    from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
     re_type = "neural_network"
     re_weights_file = "re_mse_weights.50"
-    cognitive_map_filename = "after_exploration.gpickle"
-    mode = "combo"
+    cognitive_map_filename = "after_exploration1.gpickle"
     env_model = "Savinov_val3"  # only one currently supported
 
     goals = [
@@ -99,7 +97,7 @@ if __name__ == "__main__":
     pc_network = PlaceCellNetwork(reach_estimator=re)
     cognitive_map = LifelongCognitiveMap(reachability_estimator=re)
 
-    pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map, mode=mode)
+    pc_network, cognitive_map = waypoint_movement(goals, env_model, gc_network, pc_network, cognitive_map)
     cognitive_map.postprocess_topological_navigation()
 
     pc_network.save_pc_network()

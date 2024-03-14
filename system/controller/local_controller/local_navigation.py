@@ -118,7 +118,7 @@ def get_observations(env):
     return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
 
 
-def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
+def vector_navigation(env, goal, gc_network, target_gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
                       collect_data_freq=False, collect_data_reachable=False, exploration_phase=False,
                       pc_network: PlaceCellNetwork = None, cognitive_map: CognitiveMapInterface = None):
@@ -156,7 +156,7 @@ def vector_navigation(env, goal, gc_network, gc_spiking=None, model="combo",
     env.goal_pos = goal
 
     if model != "analytical":
-        gc_network.set_as_target_state(gc_spiking)
+        gc_network.set_as_target_state(target_gc_spiking)
 
     env.nr_ofsteps = 0
     env.turn_to_goal(gc_network, pod)
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
         env = PybulletEnvironment(False, dt, env_model, "analytical", start=start)
 
-        vector_navigation(env, goal, gc_network, gc_spiking=target_spiking, model=model, step_limit=float('inf'),
+        vector_navigation(env, goal, gc_network, target_gc_spiking=target_spiking, model=model, step_limit=float('inf'),
                           plot_it=True, exploration_phase=False)
 
     elif experiment == "vector_navigation":
@@ -340,7 +340,7 @@ if __name__ == "__main__":
                 target_spiking = gc_network.consolidate_gc_spiking()
                 vector_navigation(env, goal, gc_network, model="analytical")
                 start_time = time.time()
-                vector_navigation(env, list(start), gc_network, gc_spiking=target_spiking, model=model, step_limit=8000,
+                vector_navigation(env, list(start), gc_network, target_gc_spiking=target_spiking, model=model, step_limit=8000,
                                   plot_it=False)
                 trial_time = time.time() - start_time
                 """------------------------------------------------------------------------------------------"""
@@ -357,12 +357,12 @@ if __name__ == "__main__":
                     update_fraction = 0.2
 
                 start_time = time.time()
-                vector_navigation(env, list(goal), gc_network, gc_spiking=target_spiking, model=model, step_limit=8000,
+                vector_navigation(env, list(goal), gc_network, target_gc_spiking=target_spiking, model=model, step_limit=8000,
                                   plot_it=False)
                 actual_error_goal = np.linalg.norm(env.xy_coordinates[-1] - env.goal_pos)
                 actual_error_goal_array.append(actual_error_goal)
                 env.nr_ofsteps = 0
-                vector_navigation(env, list(start), gc_network, gc_spiking=start_spiking, model=model, step_limit=8000,
+                vector_navigation(env, list(start), gc_network, target_gc_spiking=start_spiking, model=model, step_limit=8000,
                                   plot_it=False)
 
                 trial_time = time.time() - start_time
@@ -430,7 +430,7 @@ if __name__ == "__main__":
             env.num_ray_dir = num_ray_dir
             env.tactile_cone = cone
 
-            over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
+            over, _ = vector_navigation(env, goal, gc_network=gc_network, target_gc_spiking=target_spiking, model=model,
                                         plot_it=True, step_limit=10000, obstacles=True)
             # if over != 1: return
             print("here", over, mapping, combine, num_ray_dir, cone)
@@ -457,7 +457,7 @@ if __name__ == "__main__":
             env.num_ray_dir = num_ray_dir
             env.tactile_cone = cone
 
-            over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
+            over, _ = vector_navigation(env, goal, gc_network=gc_network, target_gc_spiking=target_spiking, model=model,
                                         plot_it=True, step_limit=10000, obstacles=False)
             # if over != 1: return
             print("here", over, mapping, combine, num_ray_dir, cone)
@@ -483,7 +483,7 @@ if __name__ == "__main__":
             env.num_ray_dir = num_ray_dir
             env.tactile_cone = cone
 
-            over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
+            over, _ = vector_navigation(env, goal, gc_network=gc_network, target_gc_spiking=target_spiking, model=model,
                                         plot_it=True, step_limit=10000, obstacles=False)
             # if over != 1: return
 
@@ -509,7 +509,7 @@ if __name__ == "__main__":
             env.num_ray_dir = num_ray_dir
             env.tactile_cone = cone
 
-            over, _ = vector_navigation(env, goal, gc_network=gc_network, gc_spiking=target_spiking, model=model,
+            over, _ = vector_navigation(env, goal, gc_network=gc_network, target_gc_spiking=target_spiking, model=model,
                                         plot_it=True, step_limit=10000, obstacles=False)
             # if over != 1: return
             print(over, mapping, combine, num_ray_dir, cone)

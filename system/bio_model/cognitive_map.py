@@ -47,9 +47,9 @@ class CognitiveMapInterface:
 
         self.reach_estimator = reachability_estimator
         self.node_network = nx.DiGraph()
+        self.debug = debug
         if load_data_from is not None:
             self.load(filename=load_data_from)
-        self.debug = debug
         # threshold used for determining nodes that represents current location of the agent
         self.active_threshold = 0.9
         # last active node
@@ -136,7 +136,7 @@ class CognitiveMapInterface:
         if not os.path.exists(directory):
             raise ValueError("cognitive map not found")
         self.node_network = nx.read_gpickle(os.path.join(directory, filename))
-        if debug:
+        if self.debug:
             self.draw()
 
     def draw(self, with_labels: bool = True):

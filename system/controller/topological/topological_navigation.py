@@ -14,7 +14,6 @@ import os
 
 from system.bio_model.grid_cell_model import GridCellNetwork
 from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
-from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -188,11 +187,12 @@ if __name__ == "__main__":
     Test navigation through the maze.
     The exploration should be completed before running this script. 
     """
+    from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
     re_type = "neural_network"
     re_weights_file = "re_mse_weights.50"
     map_file = "after_exploration.gpickle"
-    map_file_after_lifelong_learning = "after_exploration.gpickle"
+    map_file_after_lifelong_learning = "after_lifelong_learning.gpickle"
     with_spikings = True
     env_model = "Savinov_val3"
     model = "combo"
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     re = reachability_estimator_factory(re_type, weights_file=re_weights_file, env_model=env_model,
                                         with_spikings=with_spikings)
     pc_network = PlaceCellNetwork(from_data=True, reach_estimator=re)
-    cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file)
+    cognitive_map = LifelongCognitiveMap(reachability_estimator=re, load_data_from=map_file, debug=True)
     gc_network = setup_gc_network(1e-2)
     pod = PhaseOffsetDetectorNetwork(16, 9, 40)
 
