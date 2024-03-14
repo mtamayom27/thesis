@@ -7,7 +7,6 @@
 *
 ***************************************************************************************
 """
-from system.bio_model.grid_cell_model import GridCellNetwork
 
 ''' Egocentric Ray Detection from:
 ***************************************************************************************
@@ -46,7 +45,7 @@ import math
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 import system.plotting.plotResults as plot
-from system.controller.local_controller.local_navigation import compute_navigation_goal_vector
+from system.bio_model.grid_cell_model import GridCellNetwork
 
 
 def closest_subsegment(values):
@@ -579,6 +578,7 @@ class PybulletEnvironment:
 
     def calculate_goal_vector_gc(self, gc_network, pod_network):
         """ Uses decoded grid cell spikings as a goal vector. """
+        from system.controller.local_controller.local_navigation import compute_navigation_goal_vector
         return compute_navigation_goal_vector(gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network)
 
     def reached(self, goal_vector):

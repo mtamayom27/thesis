@@ -18,8 +18,6 @@ import os
 
 from matplotlib import pyplot as plt
 
-from system.controller.reachability_estimator.reachability_estimation import (reachability_estimator_factory,
-                                                                              ReachabilityEstimator)
 from system.plotting.plotHelper import add_environment, TUM_colors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -106,6 +104,7 @@ class PlaceCell:
 
 class PlaceCellNetwork:
     """A PlaceCellNetwork holds information about all Place Cells"""
+    from system.controller.reachability_estimator.reachability_estimation import ReachabilityEstimator
 
     def __init__(self, reach_estimator: ReachabilityEstimator, from_data=False):
         """ Place Cell Network  of the environment. 
@@ -201,6 +200,7 @@ if __name__ == '__main__':
     from system.bio_model.cognitive_map import LifelongCognitiveMap
     from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
     from system.controller.simulation.pybullet_environment import PybulletEnvironment
+    from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
 
     # setup place cell network, cognitive map and grid cell network (from data)
     weights_file = "re_mse_weights.50"
