@@ -37,11 +37,12 @@ It had to be modified to work with Python3. Follow these instructions (https://g
 
 ## More Setup
 
-To use the data described in the thesis go to: 
+Precomputed weights for reachability estimator, place and grid cells, 
+as well as multiple versions of cognitive maps can be found under 
+[this link](https://syncandshare.lrz.de/getlink/fi2PvsoTCgHNwra5QXrEwP/data.zip).
 
 
 This folder contains:
-- experiments: the experiment results from the thesis
 - bio_data: model of grid cells, place cells and the cognitive map
 - re: trajectory and reachability dataset for training as well as the final model
 
