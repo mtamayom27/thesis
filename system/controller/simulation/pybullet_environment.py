@@ -1,4 +1,19 @@
-""" This code has been adapted from:
+import pybullet as p
+import time
+import os
+import sys
+import pybullet_data
+import numpy as np
+import math
+import h5py
+from PIL import Image
+
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
+import system.plotting.plotResults as plot
+from system.bio_model.grid_cell_model import GridCellNetwork
+
+"""This code has been adapted from:
 ***************************************************************************************
 *    Title: "Neurobiologically Inspired Navigation for Artificial Agents"
 *    Author: "Johanna Latzel"
@@ -8,7 +23,7 @@
 ***************************************************************************************
 """
 
-''' Egocentric Ray Detection from:
+""" Egocentric Ray Detection from:
 ***************************************************************************************
 *    Title: "Biologically Plausible Spatial Navigation Based on Border Cells"
 *    Author: "Camillo Heye"
@@ -16,8 +31,8 @@
 *    Availability: https://drive.google.com/file/d/1RvmLd5Ee8wzNFMbqK-7jG427M8KlG4R0/view
 *
 ***************************************************************************************
-'''
-''' Camera and Object Loading from:
+"""
+""" Camera and Object Loading from:
 ***************************************************************************************
 *    Title: "Simulate Images for ML in PyBullet — The Quick & Easy Way"
 *    Author: "Mason McGough"
@@ -25,8 +40,8 @@
 *    Availability: https://towardsdatascience.com/simulate-images-for-ml-in-pybullet-the-quick-easy-way-859035b2c9dd
 *
 ***************************************************************************************
-'''
-''' Keyboard Movement from:
+"""
+""" Keyboard Movement from:
 ***************************************************************************************
 *    Title: "pyBulletIntro"
 *    Author: "Ramin Assadollahi"
@@ -34,19 +49,7 @@
 *    Availability: https://github.com/assadollahi/pyBulletIntro
 *
 ***************************************************************************************
-'''
-import pybullet as p
-import time
-import os
-import sys
-import pybullet_data
-import numpy as np
-import math
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import system.plotting.plotResults as plot
-from system.bio_model.grid_cell_model import GridCellNetwork
-
+"""
 
 def closest_subsegment(values):
     values = np.array(values)
@@ -71,13 +74,25 @@ def vectors_in_one_direction(v1, v2) -> bool:
 class PybulletEnvironment:
     """This class deals with everything pybullet or environment (obstacles) related"""
 
-    def __init__(self, visualize, dt, env_model, mode=None, build_data_set=False, start=None, orientation=-np.pi/2, frame_limit=5000):
-        """ Create environment.
-        
+    # changes manuel : build_date_set to true!
+
+    def __init__(
+        self,
+        visualize,
+        dt,
+        env_model,
+        mode=None,
+        build_data_set=False,
+        start=None,
+        orientation=-np.pi / 2,
+        frame_limit=5000,
+    ):
+        """Create environment.
+
         arguments:
         visualize   -- opens JAVA application to see agent in environment
         dt          -- timestep for simulation
-        env_model   -- layout of obstacles in the environment 
+        env_model   -- layout of obstacles in the environment
                     (choices: "plane", "Savinov_val2", "Savinov_val3", "Savinov_test7")
         mode        -- choose goal vector calculation (choices: "analytical", "keyboard", "pod", "linear_lookahead")
         buildDataSet-- camera images are only taken when this is true
@@ -87,7 +102,7 @@ class PybulletEnvironment:
 
         try:
             p.disconnect()
-        except:
+        except:  # noqa: E722
             pass
 
         self.visualize = visualize  # to open JAVA application
@@ -103,33 +118,55 @@ class PybulletEnvironment:
         self.env_model = env_model
         self.arena_size = 15
 
-        base_position = [0, 0.05, 0.02]  # [0, 0.05, 0.02] ensures that it actually starts at origin
+        base_position = [
+            0,
+            0.05,
+            0.02,
+        ]  # [0, 0.05, 0.02] ensures that it actually starts at origin
 
-        # environment choices       
+        # environment choices
         if env_model == "Savinov_val3":
             base_position = [-2, 0.05, 0.02]
-            p.resetDebugVisualizerCamera(cameraDistance=10, cameraYaw=0, cameraPitch=-70,
-                                         cameraTargetPosition=[-2, -0.35, 5.0])
+            p.resetDebugVisualizerCamera(
+                cameraDistance=10,
+                cameraYaw=0,
+                cameraPitch=-70,
+                cameraTargetPosition=[-2, -0.35, 5.0],
+            )
             # p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=0, cameraPitch=-70, cameraTargetPosition=[-0.55, -0.35, 5.0])
             self.dimensions = [-9, 6, -5, 4]
         elif env_model == "Savinov_val2":
             base_position = [0, 3.05, 0.02]
-            p.resetDebugVisualizerCamera(cameraDistance=10, cameraYaw=0, cameraPitch=-70,
-                                         cameraTargetPosition=[0.55, -0.35, 5.0])
+            p.resetDebugVisualizerCamera(
+                cameraDistance=10,
+                cameraYaw=0,
+                cameraPitch=-70,
+                cameraTargetPosition=[0.55, -0.35, 5.0],
+            )
             self.dimensions = [-5, 5, -5, 5]
         elif env_model == "Savinov_test7":
             base_position = [-1, 0.05, 0.02]
-            p.resetDebugVisualizerCamera(cameraDistance=10, cameraYaw=0, cameraPitch=-70,
-                                         cameraTargetPosition=[-1.55, -0.35, 5.0])
+            p.resetDebugVisualizerCamera(
+                cameraDistance=10,
+                cameraYaw=0,
+                cameraPitch=-70,
+                cameraTargetPosition=[-1.55, -0.35, 5.0],
+            )
             self.dimensions = [-9, 6, -4, 4]
         elif env_model == "plane":
-            p.resetDebugVisualizerCamera(cameraDistance=4.5, cameraYaw=0, cameraPitch=-70,
-                                         cameraTargetPosition=[0, 0, 0])
+            p.resetDebugVisualizerCamera(
+                cameraDistance=4.5,
+                cameraYaw=0,
+                cameraPitch=-70,
+                cameraTargetPosition=[0, 0, 0],
+            )
             urdfRootPath = pybullet_data.getDataPath()
             p.loadURDF(os.path.join(urdfRootPath, "plane.urdf"))
         elif "obstacle" in env_model:
             dirname = os.path.dirname(__file__)
-            plane = os.path.realpath(os.path.join(dirname, "environment/" + self.env_model + "/plane.urdf"))
+            plane = os.path.realpath(
+                os.path.join(dirname, "environment/" + self.env_model + "/plane.urdf")
+            )
             p.loadURDF(plane)
         else:
             raise ValueError("No matching env_model found.")
@@ -152,17 +189,25 @@ class PybulletEnvironment:
         else:
             orientation = p.getQuaternionFromEuler([0, 0, np.pi / 2])  # faces North
 
-        max_speed = 5.5  # determines speed at which agent travels: max_speed = 5.5 -> actual speed of ~0.5 m/s             
+        max_speed = 5.5  # determines speed at which agent travels: max_speed = 5.5 -> actual speed of ~0.5 m/s
 
         # load agent
         dirname = os.path.dirname(__file__)
         filename = os.path.join(dirname, "p3dx/urdf/pioneer3dx.urdf")
-        self.carID = p.loadURDF(filename, basePosition=base_position, baseOrientation=orientation)
+        self.carID = p.loadURDF(
+            filename, basePosition=base_position, baseOrientation=orientation
+        )
         # check if agent touches maze -> invalid start position
-        if not env_model == "plane" and not "obstacle" in env_model and self.detect_maze_agent_contact():
+        if (
+            not env_model == "plane"
+            and "obstacle" not in env_model
+            and self.detect_maze_agent_contact()
+        ):
             raise ValueError("Invalid start position. Agent and maze overlap.")
 
-        self.goal_vector_original = np.array([1, 1])  # egocentric goal vector after last recalculation
+        self.goal_vector_original = np.array(
+            [1, 1]
+        )  # egocentric goal vector after last recalculation
         self.goal_vector = np.array([0, 0])  # egocentric goal vector after last update
         self.goal_pos = None  # used for analytical goal vector calculation and plotting
 
@@ -196,50 +241,57 @@ class PybulletEnvironment:
         self.pod_arrival_threshold = 0.5
         self.lin_look_arrival_threshold = 0.2
         self.analytical_arrival_threshold = 0.1
+        
+
+
 
     def __load_obj(self, objectFilename, textureFilename):
         """load object files with specified texture into the environment"""
         dirname = os.path.dirname(__file__)
-        object = os.path.realpath(os.path.join(dirname, "environment/" + self.env_model + "/" + objectFilename))
-        texture = os.path.realpath(os.path.join(dirname, "environment/textures/" + textureFilename))
+        object = os.path.realpath(
+            os.path.join(
+                dirname, "environment/" + self.env_model + "/" + objectFilename
+            )
+        )
+        texture = os.path.realpath(
+            os.path.join(dirname, "environment/textures/" + textureFilename)
+        )
 
         visualShapeId = p.createVisualShape(
-            shapeType=p.GEOM_MESH,
-            fileName=object,
-            rgbaColor=None,
-            meshScale=[1, 1, 1])
+            shapeType=p.GEOM_MESH, fileName=object, rgbaColor=None, meshScale=[1, 1, 1]
+        )
 
         collisionShapeId = p.createCollisionShape(
-            shapeType=p.GEOM_MESH,
-            fileName=object,
-            meshScale=[1, 1, 1])
+            shapeType=p.GEOM_MESH, fileName=object, meshScale=[1, 1, 1]
+        )
 
         multiBodyId = p.createMultiBody(
             baseMass=0.0,
             baseCollisionShapeIndex=collisionShapeId,
             baseVisualShapeIndex=visualShapeId,
             basePosition=[0, 0, 0],
-            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]))
+            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
+        )
 
         textureId = p.loadTexture(texture)
         p.changeVisualShape(multiBodyId, -1, textureUniqueId=textureId)
         return multiBodyId
 
     def camera(self, agent_pos_orn=None):
-        """ simulates a camera mounted on the robot, creating images """
+        """simulates a camera mounted on the robot, creating images"""
         if not self.buildDataSet and not self.visualize:
             return
 
         distance = 100000
-        img_w, img_h = 64, 64
+        #Manuel: change the image size to 224x224
+        img_w, img_h = 224, 224
 
         if agent_pos_orn:
             agent_pos, agent_orn = agent_pos_orn
             agent_pos = (agent_pos[0], agent_pos[1], 0.02)
             yaw = agent_orn
         else:
-            agent_pos, agent_orn = \
-                p.getBasePositionAndOrientation(self.carID)
+            agent_pos, agent_orn = p.getBasePositionAndOrientation(self.carID)
 
             yaw = p.getEulerFromQuaternion(agent_orn)[-1]
 
@@ -258,28 +310,33 @@ class PybulletEnvironment:
         view_matrix = p.computeViewMatrix(
             cameraEyePosition=[xA, yA, zA],
             cameraTargetPosition=[xB, yB, zB],
-            cameraUpVector=[0, 0, 1.0]
+            cameraUpVector=[0, 0, 1.0],
         )
 
         projection_matrix = p.computeProjectionMatrixFOV(
-            fov=120, aspect=1.5, nearVal=0.02, farVal=3.5)
+            fov=120, aspect=1.5, nearVal=0.02, farVal=3.5
+        )
 
-        img = p.getCameraImage(img_w, img_h,
-                               view_matrix,
-                               projection_matrix, shadow=True,
-                               renderer=p.ER_BULLET_HARDWARE_OPENGL)
+        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+        width=img_w,
+        height=img_h,
+        viewMatrix=view_matrix,
+        projectionMatrix=projection_matrix
+        )   
 
+        # Convert the image to a NumPy array
+        rgb_array = np.reshape(rgbImg, (height, width, 4))
+    
         if self.buildDataSet:
-            self.images.append(img)
+            self.images.append(rgb_array)
             self.images = self.images[-self.frame_limit:]
 
-        return img
+        return rgb_array
 
     def __keyboard_movement(self):
-        """ simulates a timestep with keyboard controlled movement """
+        """simulates a timestep with keyboard controlled movement"""
         keys = p.getKeyboardEvents()
         for k, v in keys.items():
-
             if k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_TRIGGERED):
                 self.turn = -0.5
             if k == p.B3G_RIGHT_ARROW and (v & p.KEY_WAS_RELEASED):
@@ -314,7 +371,7 @@ class PybulletEnvironment:
         return True
 
     def keyboard_simulation(self):
-        """ Control the agent with your keyboard. SPACE ends the simulation."""
+        """Control the agent with your keyboard. SPACE ends the simulation."""
         self.forward = 0
         self.turn = 0
         flag = True
@@ -322,7 +379,7 @@ class PybulletEnvironment:
             flag = self.__keyboard_movement()
 
     def detect_maze_agent_contact(self):
-        """ true, if the robot is in contact with the maze """
+        """true, if the robot is in contact with the maze"""
         return bool(p.getContactPoints(self.carID, self.mazeID))
 
     def compute_movement(self, goal_vector):
@@ -353,19 +410,19 @@ class PybulletEnvironment:
         return t >= 0 and u >= 0
 
     def navigation_step(self, gc: GridCellNetwork = None, pod=None, obstacles=True):
-        """ One navigation step for the agent. 
+        """One navigation step for the agent.
             Calculate or update the goal vector.
             Calculate obstacle vector.
             Combine into movement vector and simulate movement.
-        
+
         arguments:
-        gc          -- grid cell network for path integration and goal vector calculation 
+        gc          -- grid cell network for path integration and goal vector calculation
         pod         -- phase offset decode network for goal vector calculation
         obstacles   -- if true use obstacle avoidance
         """
-        obstacle_vector=None
-        point=None
-        multiple=1
+        obstacle_vector = None
+        point = None
+        multiple = 1
         if self.mode == "analytical":
             self.goal_vector = self.calculate_goal_vector_analytically()
         else:
@@ -376,15 +433,27 @@ class PybulletEnvironment:
 
             if np.linalg.norm(np.array(self.goal_vector)) > 0:
                 normed_goal_vector = np.array(self.goal_vector) / np.linalg.norm(
-                    np.array(self.goal_vector))  # normalize goal_vector to a standard length of 1
+                    np.array(self.goal_vector)
+                )  # normalize goal_vector to a standard length of 1
             else:
                 normed_goal_vector = np.array([0.0, 0.0])
 
             # combine goal and obstacle vector
-            multiple = 1 if vectors_in_one_direction(normed_goal_vector, obstacle_vector) else -1
-            if not self.intersect(self.xy_coordinates[-1], normed_goal_vector, point, obstacle_vector * multiple):
+            multiple = (
+                1
+                if vectors_in_one_direction(normed_goal_vector, obstacle_vector)
+                else -1
+            )
+            if not self.intersect(
+                self.xy_coordinates[-1],
+                normed_goal_vector,
+                point,
+                obstacle_vector * multiple,
+            ):
                 multiple = 0
-            movement = list(normed_goal_vector * self.combine + obstacle_vector * multiple)
+            movement = list(
+                normed_goal_vector * self.combine + obstacle_vector * multiple
+            )
         else:
             movement = self.goal_vector
         self.compute_movement(movement)
@@ -393,7 +462,15 @@ class PybulletEnvironment:
         if gc:
             xy_speed = self.xy_speeds[-1]
             gc.track_movement(xy_speed)
-        self.camera()
+
+        rgb_array = self.camera()
+        """ if self.buildDataSet and self.nr_ofsteps < self.frame_limit:
+            # Save the image data and position to HDF5
+            self.image_dataset[self.nr_ofsteps] = rgb_array  # Save image data to HDF5
+            position = self.xy_coordinates[-1]
+            self.position_dataset[self.nr_ofsteps] = position  # Save position data to HDF5 """
+          
+    
         return point, obstacle_vector, movement
 
     def compute_angle(self, vec_1, vec_2):
@@ -411,7 +488,7 @@ class PybulletEnvironment:
         return angle * np.sign(vec[2])
 
     def compute_gains(self, goal_vector):
-        """ computes the motor gains resulting from (inhibited) goal vector"""
+        """computes the motor gains resulting from (inhibited) goal vector"""
         current_angle = self.orientation_angle[-1]
         current_heading = [np.cos(current_angle), np.sin(current_angle)]
         diff_angle = self.compute_angle(current_heading, goal_vector) / np.pi
@@ -434,39 +511,59 @@ class PybulletEnvironment:
         return [v_left, v_right]
 
     def change_speed(self, gains):
-        p.setJointMotorControlArray(bodyUniqueId=self.carID,
-                                    jointIndices=[4, 6],
-                                    controlMode=p.VELOCITY_CONTROL,
-                                    targetVelocities=gains,
-                                    forces=[10, 10])
+        p.setJointMotorControlArray(
+            bodyUniqueId=self.carID,
+            jointIndices=[4, 6],
+            controlMode=p.VELOCITY_CONTROL,
+            targetVelocities=gains,
+            forces=[10, 10],
+        )
 
     def save_position_and_speed(self):
         [position, angle] = p.getBasePositionAndOrientation(self.carID)
         angle = p.getEulerFromQuaternion(angle)
         self.xy_coordinates.append(np.array([position[0], position[1]]))
-        self.xy_coordinates = self.xy_coordinates[-self.frame_limit*100:]
+        self.xy_coordinates = self.xy_coordinates[-self.frame_limit * 100 :]
         self.orientation_angle.append(angle[2])
-        self.orientation_angle = self.orientation_angle[-self.frame_limit:]
+        self.orientation_angle = self.orientation_angle[-self.frame_limit :]
 
         [linear_v, _] = p.getBaseVelocity(self.carID)
         self.xy_speeds.append([linear_v[0], linear_v[1]])
-        self.xy_speeds = self.xy_speeds[-self.frame_limit:]
+        self.xy_speeds = self.xy_speeds[-self.frame_limit :]
         self.speeds.append(np.linalg.norm([linear_v[0], linear_v[1]]))
-        self.speeds = self.speeds[-self.frame_limit:]
+        self.speeds = self.speeds[-self.frame_limit :]
         self.goal_vector_array.append(self.goal_vector)
-        self.goal_vector_array = self.goal_vector_array[-self.frame_limit:]
+        self.goal_vector_array = self.goal_vector_array[-self.frame_limit :]
+        
+        """
+        Manuel: save the camera images and the position data to the HDF5 file
+        """
+        """ if self.buildDataSet and self.nr_ofsteps < self.frame_limit:
+            self.image_dataset[self.nr_ofsteps] = self.camera()
+            self.position_dataset[self.nr_ofsteps] = self.xy_coordinates[-1]
+          #  self.orientation_dataset[self.nr_ofsteps] = angle[2] """
+            
         self.nr_ofsteps += 1
+        
+    def get_saved_data(self):
+        if self.buildDataSet:
+            return self.image_dataset[:self.step_count], self.position_dataset[:self.step_count]
+        #, self.orientation_dataset[:self.step_count]
+        else:
+            return [], []
 
     def end_simulation(self):
         p.disconnect()
+        if self.buildDataSet:
+            self.hdf5_file.close()
 
     def add_debug_line(self, start, end, color, width=1):
-        """ add line into visualization """
+        """add line into visualization"""
         if self.visualize:
             p.addUserDebugLine(start, end, color, width)
 
     def ray_detection_egocentric(self):
-        """ returns the egocentric distance to obstacles in numRays directions """
+        """returns the egocentric distance to obstacles in numRays directions"""
 
         if self.visualize:
             p.removeAllUserDebugItems()  # removes raylines
@@ -491,20 +588,25 @@ class PybulletEnvironment:
             rayFrom.append(rayFromPoint)
 
             # 1 pi rotation -> 180 degrees
-            sub = euler_angle[2] - 2 * math.pi * i / (numRays - 1) * self.tactile_cone / 360 + math.pi / (
-                    360.0 / self.tactile_cone)
+            sub = (
+                euler_angle[2]
+                - 2 * math.pi * i / (numRays - 1) * self.tactile_cone / 360
+                + math.pi / (360.0 / self.tactile_cone)
+            )
 
-            rayTo.append([
-                rayLen * math.cos(sub) +
-                rayFromPoint[0],
-                rayLen * math.sin(sub) +
-                rayFromPoint[1],
-                rayFromPoint[2]
-            ])
+            rayTo.append(
+                [
+                    rayLen * math.cos(sub) + rayFromPoint[0],
+                    rayLen * math.sin(sub) + rayFromPoint[1],
+                    rayFromPoint[2],
+                ]
+            )
 
             ray_angles.append(sub)
 
-        results = p.rayTestBatch(rayFrom, rayTo, numThreads=0)  # get intersections with obstacles
+        results = p.rayTestBatch(
+            rayFrom, rayTo, numThreads=0
+        )  # get intersections with obstacles
         for i in range(numRays):
             hit_object_uid = results[i][0]
 
@@ -519,16 +621,33 @@ class PybulletEnvironment:
                 self.add_debug_line(rayFrom[i], hitPosition, rayHitColor)
                 self.add_debug_line(rayFrom[i], rayTo[i], rayHitColor)
                 ray_return.append(
-                    math.sqrt((hitPosition[0] - rayFrom[i][0]) ** 2 + (hitPosition[1] - rayFrom[i][1]) ** 2))
+                    math.sqrt(
+                        (hitPosition[0] - rayFrom[i][0]) ** 2
+                        + (hitPosition[1] - rayFrom[i][1]) ** 2
+                    )
+                )
 
         return ray_return, ray_angles, [it[3] for it in results]
+    
+    
+    
+    ##Manuellll
+    def get_agent_head_direction(self):
+        """Returns the agent's head direction (yaw angle)"""
+        _, agent_orn = p.getBasePositionAndOrientation(self.carID)
+        yaw = p.getEulerFromQuaternion(agent_orn)[-1]
+        return yaw
 
-    ''' Calculates the obstacle_vector from the ray distances'''
+    def get_camera_image(self):
+        """Returns the current camera image as a NumPy array"""
+        return self.camera()
+
 
     def calculate_obstacle_vector(self):
+        """ Calculates the obstacle_vector from the ray distances"""
         rays, angles, hit_points = self.ray_detection_egocentric()
         start_index, end_index = closest_subsegment(rays)
-        hit_points = hit_points[start_index:end_index+1]
+        hit_points = hit_points[start_index : end_index + 1]
 
         if end_index < 0:
             return np.array([0, 0]), np.array([0.0, 0.0])
@@ -554,22 +673,37 @@ class PybulletEnvironment:
                     A = np.vstack([x_values, np.ones(len(x_values))]).T
                     slope, intercept = np.linalg.lstsq(A, y_values, rcond=None)[0]
                     direction_vector = np.array([1.0, slope])
-                    direction_vector /= np.linalg.norm(direction_vector)  # Normalize the direction vector
+                    direction_vector /= np.linalg.norm(
+                        direction_vector
+                    )  # Normalize the direction vector
             except (IndexError, ValueError, np.linalg.LinAlgError):
                 return np.array([0.0, 0.0]), np.array([0.0, 0.0])
 
         if rays[end_index] > 0:
             self_point = p.getLinkState(self.carID, 0)[0]
-            start_point = self_point + np.array(
-                [np.cos(angles[end_index]), np.sin(angles[end_index]), self_point[-1]]) * rays[end_index]
-            end_point = start_point - np.array([direction_vector[0], direction_vector[1], 0])
+            start_point = (
+                self_point
+                + np.array(
+                    [
+                        np.cos(angles[end_index]),
+                        np.sin(angles[end_index]),
+                        self_point[-1],
+                    ]
+                )
+                * rays[end_index]
+            )
+            end_point = start_point - np.array(
+                [direction_vector[0], direction_vector[1], 0]
+            )
             self.add_debug_line(start_point, end_point, (0, 0, 0))
 
-        direction_vector = direction_vector * 1.5 / min(rays[start_index:end_index + 1])
+        direction_vector = (
+            direction_vector * 1.5 / min(rays[start_index : end_index + 1])
+        )
         return hit_points[0], direction_vector
 
     def calculate_goal_vector_analytically(self, goal=None):
-        """ Uses a precise goal vector. """
+        """Uses a precise goal vector."""
         goal_pos = goal if goal is not None else self.goal_pos
         rayFromPoint = p.getLinkState(self.carID, 0)[0]  # linkWorldPosition
         goal_vector = [-rayFromPoint[0] + goal_pos[0], -rayFromPoint[1] + goal_pos[1]]
@@ -577,30 +711,43 @@ class PybulletEnvironment:
         return goal_vector
 
     def calculate_goal_vector_gc(self, gc_network, pod_network):
-        """ Uses decoded grid cell spikings as a goal vector. """
-        from system.controller.local_controller.local_navigation import compute_navigation_goal_vector
-        return compute_navigation_goal_vector(gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network)
+        """Uses decoded grid cell spikings as a goal vector."""
+        from system.controller.local_controller.local_navigation import (
+            compute_navigation_goal_vector,
+        )
+
+        return compute_navigation_goal_vector(
+            gc_network, self.nr_ofsteps, self, model=self.mode, pod=pod_network
+        )
 
     def reached(self, goal_vector):
-        if self.mode == "pod" and abs(np.linalg.norm(goal_vector)) < self.pod_arrival_threshold:
+        if (
+            self.mode == "pod"
+            and abs(np.linalg.norm(goal_vector)) < self.pod_arrival_threshold
+        ):
             return True
 
-        if self.mode == "linear_lookahead" and abs(np.linalg.norm(goal_vector)) < self.lin_look_arrival_threshold:
+        if (
+            self.mode == "linear_lookahead"
+            and abs(np.linalg.norm(goal_vector)) < self.lin_look_arrival_threshold
+        ):
             return True
 
-        if self.mode == "analytical" and abs(
-                np.linalg.norm(goal_vector)) < self.analytical_arrival_threshold:
+        if (
+            self.mode == "analytical"
+            and abs(np.linalg.norm(goal_vector)) < self.analytical_arrival_threshold
+        ):
             return True
         return False
 
     def get_status(self):
-        ''' Returns robot status during navigation
-        
+        """Returns robot status during navigation
+
         returns:
         0   -- robot still moving
         1   -- robot arrived at goal
         -1  -- robot stuck
-        '''
+        """
 
         if self.mode == "analytical":
             goal_vector = self.calculate_goal_vector_analytically()
@@ -616,8 +763,13 @@ class PybulletEnvironment:
         else:
             stop = 200
 
-        if self.buffer + stop < len(self.xy_coordinates) and stop < len(self.xy_coordinates):
-            if np.linalg.norm(self.xy_coordinates[-1] - self.xy_coordinates[-stop]) < 0.1:
+        if self.buffer + stop < len(self.xy_coordinates) and stop < len(
+            self.xy_coordinates
+        ):
+            if (
+                np.linalg.norm(self.xy_coordinates[-1] - self.xy_coordinates[-stop])
+                < 0.1
+            ):
                 return -1
 
         # Still going
@@ -627,21 +779,25 @@ class PybulletEnvironment:
         if self.mode == "analytical":
             return self.calculate_goal_vector_analytically(goal)
         elif pod_network:
-            return self.calculate_goal_vector_gc(gc_network, pod_network)  # recalculate goal_vector
+            return self.calculate_goal_vector_gc(
+                gc_network, pod_network
+            )  # recalculate goal_vector
 
         return np.zeros((2))
 
     def turn_to_goal(self, gc_network=None, pod_network=None):
-        """ Agent turns to face in goal vector direction """
+        """Agent turns to face in goal vector direction"""
         self.goal_vector = self.get_goal_vector(gc_network, pod_network)
 
         if np.linalg.norm(np.array(self.goal_vector)) == 0:
             return
-
+    
         i = 0
-        while i == 0 or (abs(diff_angle) > 0.05 and i < 5000):
+        while i == 0 or (abs(diff_angle) > 0.05 and i < 5000):  # noqa: F821
             i += 1
-            normed_goal_vector = np.array(self.goal_vector) / np.linalg.norm(np.array(self.goal_vector))
+            normed_goal_vector = np.array(self.goal_vector) / np.linalg.norm(
+                np.array(self.goal_vector)
+            )
 
             current_angle = self.orientation_angle[-1]
             current_heading = [np.cos(current_angle), np.sin(current_angle)]
@@ -701,7 +857,9 @@ if __name__ == "__main__":
     env_model = "Savinov_val3"
 
     dt = 1e-2
-    env = PybulletEnvironment(True, dt, env_model, mode="keyboard", start=[-1, -2])
+    env = PybulletEnvironment(
+        True, dt, env_model, mode="keyboard", build_data_set=True, start=[1, 0]
+    )
     env.keyboard_simulation()
 
     # plot the agent's trajectory in the environment

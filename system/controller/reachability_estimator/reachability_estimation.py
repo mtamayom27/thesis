@@ -7,6 +7,7 @@
 *
 ***************************************************************************************
 """
+##git ttessstt
 import numpy
 import torch
 import numpy as np
@@ -17,6 +18,7 @@ import os
 import system.controller.reachability_estimator.networks as networks
 from system.controller.simulation.environment.map_occupancy import MapLayout
 from system.bio_model.place_cell_model import PlaceCell
+from typing import Union, List
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -26,13 +28,13 @@ def get_path():
     dirname = os.path.dirname(__file__)
     return dirname
 
-
+##MANUEL. ADDING THE SHORTCUT REACHABILITY ESTIMATOR
 def reachability_estimator_factory(type: str = 'distance', **kwargs):
     """ Returns an instance of the reachability estimator interface
 
     arguments:
     type: str -- type of the reachability estimator, possible values:
-                 ['distance' (default), 'neural_network', 'simulation', 'view_overlap']
+                 ['distance' (default), 'neural_network', 'simulation', 'view_overlap', 'shortcut']
     kwargs:
         device: str         -- type of the computations, possible values: ['cpu' (default), 'gpu']
         weights_file: str   -- filename of the weights for network-based estimator if exists
@@ -52,6 +54,10 @@ def reachability_estimator_factory(type: str = 'distance', **kwargs):
                                                env_model=kwargs.get('env_model', None))
     elif type == 'view_overlap':
         return ViewOverlapReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False))
+    
+    elif type == 'shortcut':
+        return ShortcutReachabilityEstimator(device=kwargs.get('device', 'cpu'), debug=kwargs.get('debug', False))
+
     print("Reachability estimator type not defined: " + type)
     return None
 
@@ -173,26 +179,28 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
                                                    [spikings_reshape(np.array(goal.gc_connections).flatten())])[0]
         return self.predict_reachability_batch([start.observations[0]], [goal.observations[-1]])[0]
 
-    def predict_reachability_batch(self, starts: [numpy.ndarray | torch.Tensor], goals: [numpy.ndarray | torch.Tensor],
-                                   src_spikings: [numpy.ndarray | torch.Tensor] = None,
-                                   goal_spikings: [numpy.ndarray | torch.Tensor] = None) -> [float]:
+    def predict_reachability_batch(self, starts: Union[List[numpy.ndarray], List[torch.Tensor]], 
+                                   goals: Union[List[numpy.ndarray], List[torch.Tensor]],
+                                   src_spikings: Union[List[numpy.ndarray], List[torch.Tensor]] = None,
+                                   goal_spikings: Union[List[numpy.ndarray], List[torch.Tensor]] = None) -> List[float]:
         """ Predicts reachability for multiple location pairs
 
         arguments:
         starts: [numpy.ndarray | torch.Tensor]        -- images perceived by the agent on first locations of each pair
-        starts: [numpy.ndarray | torch.Tensor]        -- images perceived by the agent on second locations of each pair
-        src_spikings: [numpy.ndarray]                 -- grid cell firings corresponding to the first locations
+        goals: [numpy.ndarray | torch.Tensor]        -- images perceived by the agent on second locations of each pair
+        src_spikings: [numpy.ndarray | torch.Tensor]  -- grid cell firings corresponding to the first locations
                                                          of each pair, nullable
-        goal_spikings: [numpy.ndarray]                -- grid cell firings corresponding to the second locations
+        goal_spikings: [numpy.ndarray | torch.Tensor] -- grid cell firings corresponding to the second locations
                                                          of each pair, nullable
-        batch_size: int                               -- length of each input list and of returned list
 
         returns:
         [float] -- reachability values
         """
 
-        def get_prediction(src_batch: [numpy.ndarray | torch.Tensor], dst_batch: [numpy.ndarray | torch.Tensor],
-                           src_spikings: [numpy.ndarray] = None, goal_spikings: [numpy.ndarray] = None) -> [float]:
+        def get_prediction(src_batch: Union[List[numpy.ndarray], List[torch.Tensor]], 
+                           dst_batch: Union[List[numpy.ndarray], List[torch.Tensor]],
+                           src_spikings: List[numpy.ndarray] = None, 
+                           goal_spikings: List[numpy.ndarray] = None) -> List[float]:
             """ Helper function, main logic for predicting reachability for multiple location pairs """
             with torch.no_grad():
                 if isinstance(src_batch[0], np.ndarray):
@@ -246,6 +254,39 @@ class NetworkReachabilityEstimator(ReachabilityEstimator):
         """ Converts output of the network into connectivity factor """
         return min(1.0, max((self.threshold_reachable - reachability_factor * 0.3) / self.threshold_reachable, 0.1))
 
+##MANUEL. TEST THE SHORTCUT REACHABILITY ESTIMATOR
+class ShortcutReachabilityEstimator(ReachabilityEstimator):
+    def __init__(self, threshold_same=0.4, threshold_reachable=0.75, distance_threshold=2.0, device='cpu', debug=False):
+        super().__init__(threshold_same, threshold_reachable, device, debug)
+        self.distance_threshold = distance_threshold
+
+    def predict_reachability(self, start: PlaceCell, goal: PlaceCell) -> float:
+        # Use egocentric coordinates to detect if there's a shortcut
+        distance = np.linalg.norm(start.egocentric_coordinates - goal.egocentric_coordinates)
+        if distance < self.distance_threshold:
+            return self.compute_similarity(start, goal)
+        return 0.0 
+
+    def compute_similarity(self, start: PlaceCell, goal: PlaceCell) -> float:
+        image_similarity = self.compute_image_similarity(start.image, goal.image)
+        head_direction_similarity = self.compute_head_direction_similarity(start.head_direction, goal.head_direction)
+        overall_similarity = (image_similarity + head_direction_similarity) / 2.0
+        return overall_similarity
+
+    def compute_image_similarity(self, image1, image2):
+        """Compute image similarity based on the method described in the paper."""
+        distance = np.linalg.norm(image1 - image2)
+        # similarity function f1 -> vom paperrr
+        alpha = 15
+        similarity = max(0, 1 - distance / alpha)
+        return similarity
+
+    def compute_head_direction_similarity(self, direction1, direction2):
+        """Compute head direction similarity based on angular difference."""
+        return 1.0 - np.abs(direction1 - direction2) / np.pi
+
+    def pass_threshold(self, reachability_factor, threshold) -> bool:
+        return reachability_factor >= threshold
 
 class SimulationReachabilityEstimator(ReachabilityEstimator):
     def __init__(self, device='cpu', debug=False, env_model=None):
@@ -295,7 +336,7 @@ class SimulationReachabilityEstimator(ReachabilityEstimator):
 
             env.end_simulation()
             if overlap_ratios[0] < 0.1 and overlap_ratios[1] < 0.1:
-                # Agent is close to the goal, but seperated by a wall.
+                # Agent is close to the goal, but separated by a wall.
                 return 0.0
             elif np.linalg.norm(goal_pos - env.xy_coordinates[-1]) > 0.7:
                 # Agent actually didn't reach the goal and is too far away.

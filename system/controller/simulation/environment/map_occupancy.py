@@ -29,6 +29,10 @@ import time
 import sys
 import os
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+helpers_dir = os.path.join(current_dir, 'map_occupancy_helpers')
+sys.path.append(helpers_dir)
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.append("/Users/anna/Documents/TUM/Thesis/bio-inspired-navigation/")
@@ -42,7 +46,7 @@ from map_utils import a_star#, rasterize_line
 from math_utils import depth_to_xy_plane, depth_to_xy, compute_normals
 
 
-import map_utils_cpp as map_cpp
+import map_utils_cpp_new as map_cpp
 
 class Map(object):
     def __init__(self,

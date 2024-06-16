@@ -40,7 +40,7 @@ cmapblue = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
 csfont = {'fontname': 'Comic Sans MS'}
 hfont = {'fontname': 'Avenir'}
 
-cmap = plt.cm.get_cmap("tab20")  # define the colormap
+cmap = plt.get_cmap("tab20")  # define the colormap
 # extract all colors from the .jet map
 cmaplist = [cmap(i) for i in range(cmap.N)]
 # force the first color entry to be grey

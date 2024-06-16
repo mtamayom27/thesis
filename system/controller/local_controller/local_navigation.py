@@ -11,10 +11,11 @@
 import os
 import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from system.bio_model.cognitive_map import CognitiveMapInterface
 from system.bio_model.place_cell_model import PlaceCellNetwork
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
+
 from system.controller.local_controller.decoder.linear_lookahead_no_rewards import *
 from system.controller.local_controller.decoder.phase_offset_detector import PhaseOffsetDetectorNetwork
 from system.bio_model.grid_cell_model import GridCellNetwork
@@ -107,7 +108,9 @@ def setup_gc_network(dt):
     gmax = 2.4  # 2.4 for default, determines resolution, dont pick to high (>2.4 at speed = 0.5m/s)
 
     # note that if gc modules are created from data n and M are overwritten
-    gc_network = GridCellNetwork(n, M, dt, gmin, gmax=gmax, from_data=True)
+
+    #Manuel change from data false
+    gc_network = GridCellNetwork(n, M, dt, gmin, gmax=gmax, from_data=False)
 
     return gc_network
 
