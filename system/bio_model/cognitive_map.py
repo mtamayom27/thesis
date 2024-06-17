@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 
 import sys
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from system.plotting.helper import plot_cognitive_map_path
 from system.plotting.plotThesis import plot_grid_cell
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from system.bio_model.place_cell_model import PlaceCell, PlaceCellNetwork
 from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory, \
     ReachabilityEstimator
@@ -635,7 +635,7 @@ if __name__ == "__main__":
     from system.controller.simulation.pybullet_environment import PybulletEnvironment
 
     # Adjust what sort of RE you want to use for connecting nodes
-    connection_re_type = "neural_network"  # "neural_network" #"simulation" #"view_overlap"
+    connection_re_type = "shortcut"  # "neural_network" #"simulation" #"view_overlap"
     weights_filename = "re_mse_weights.50"
     map_filename = "after_exploration.gpickle"
     env_model = "Savinov_val3"

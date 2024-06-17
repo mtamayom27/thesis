@@ -118,8 +118,19 @@ def setup_gc_network(dt):
 def get_observations(env):
     # observations with context length k=10 and delta T = 3
     observations = env.images[::3][-1:]
-    return [np.transpose(observation[2], (2, 0, 1)) for observation in observations]
+    print("Observations:", observations)  # Debug: Print the observations
 
+    transposed_observations = []
+    for observation in observations:
+        obs_shape = observation.shape
+        print("Shape of observation:", obs_shape)  # Debug: Print the shape of observation
+        if len(obs_shape) == 3 and obs_shape[2] == 4:  # Check if observation has 3 dimensions and 4 channels
+            transposed_observations.append(np.transpose(observation, (2, 0, 1)))
+        else:
+            print(f"Unexpected shape {obs_shape}, skipping transpose")  # Handle unexpected shapes
+            transposed_observations.append(observation)  # Keep original if not 3D
+
+    return transposed_observations
 
 def vector_navigation(env, goal, gc_network, target_gc_spiking=None, model="combo",
                       step_limit=float('inf'), plot_it=False, obstacles=True, pod=PhaseOffsetDetectorNetwork(16, 9, 40),
@@ -179,7 +190,7 @@ def vector_navigation(env, goal, gc_network, target_gc_spiking=None, model="comb
         if pc_network is not None and cognitive_map is not None:
             observations = get_observations(env)
             [firing_values, created_new_pc] = pc_network.track_movement(gc_network, observations,
-                                                                        env.xy_coordinates[-1], exploration_phase)
+                                                                        env.xy_coordinates[-1], env, exploration_phase)
 
             mapped_pc = cognitive_map.track_vector_movement(
                 firing_values, created_new_pc, pc_network.place_cells[-1], env=env,

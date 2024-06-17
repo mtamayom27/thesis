@@ -623,7 +623,18 @@ if __name__ == "__main__":
     ... first create the binary of the maze layout
     ... create the layout in the MapLayout class
     instantiate  and try it out by drawing the path.
+    
     """
+    
+    import range_libc
+    import numpy as np
+
+    sample_map = np.zeros((100, 100), dtype=np.uint8)
+    try:
+        omap = range_libc.PyOMap(sample_map)
+        print("PyOMap initialized successfully")
+    except Exception as e:
+        print(f"Error initializing PyOMap: {e}")
 
     savinov = MapLayout("Savinov_val3")
     savinov.png_to_binary('Savinov_val3/maze_topview.png')

@@ -119,7 +119,7 @@ def compute_normals(points):
     # assert np.allclose(normals, normal2, 1e-3, 1e-3), np.sum(np.abs(normals - normal2))
 
     # Equivalent to above, but much faster.
-    normals = math_utils_cpp.compute_normals(points.astype(np.float32))
+    normals = math_utils_cpp_new.compute_normals(points.astype(np.float32))
     return normals
 
 

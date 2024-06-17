@@ -209,7 +209,7 @@ class PlaceCellNetwork:
         if cell_a not in self.edges:
             self.edges[cell_a] = []
         if cell_b not in self.edges:
-            self.edges[cell_b] = []
+            self.edges[cell_b] = []     
         self.edges[cell_a].append((cell_b, relative_movement))
         self.edges[cell_b].append((cell_a, -relative_movement))
 

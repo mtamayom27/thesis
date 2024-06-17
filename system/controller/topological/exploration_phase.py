@@ -70,6 +70,9 @@ def waypoint_movement(path: [PlaceCell], env_model: str, gc_network: GridCellNet
             plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=False)
 
     env.end_simulation()
+    if plotting:
+        cognitive_map.draw()
+        plot.plotTrajectoryInEnvironment(env, goal=False, cognitive_map=cognitive_map, trajectory=True)
     return pc_network, cognitive_map
 
 
@@ -78,9 +81,9 @@ if __name__ == "__main__":
     Create a cognitive map by exploring the environment. 
     Agent follows a hard-coded path to explore the environment and build the cognitive map. 
     """
-    from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory
+    from system.controller.reachability_estimator.reachability_estimation import reachability_estimator_factory    
 
-    re_type = "neural_network"
+    re_type = "simulation"
     re_weights_file = "re_mse_weights.50"
     cognitive_map_filename = "after_exploration1.gpickle"
     env_model = "Savinov_val3"  # only one currently supported
@@ -103,6 +106,7 @@ if __name__ == "__main__":
     pc_network.save_pc_network()
     cognitive_map.save(filename=cognitive_map_filename)
 
+    plotting = False
     if plotting:
         cognitive_map.draw()
         env = PybulletEnvironment(False, dt, env_model, build_data_set=True)

@@ -100,10 +100,10 @@ class PybulletEnvironment:
         orientation -- the agent's starting orientation (default np.pi/2 (faces North))
         """
 
-        try:
+        """ try:
             p.disconnect()
-        except:  # noqa: E722
-            pass
+        except: 
+            pass """
 
         self.visualize = visualize  # to open JAVA application
 
